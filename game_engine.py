@@ -4,16 +4,25 @@ import random
 def generate_deck():
     card_deck = []
     for i in range(5):
-        card_deck.append("Relic")   # add 5 relic cards
+        card_deck.append(Card("Relic", 5))   # add 5 relic cards
     for i in range(3):
-        card_deck.append("Spider Trap")  # 3 of each trap card
-        card_deck.append("Snake Trap")
-        card_deck.append("Lava Trap")
-        card_deck.append("Boulder Trap")
-        card_deck.append("Ram Trap")
+        card_deck.append(Card("Trap", "Spider")) # 3 of each trap card
+        card_deck.append(Card("Trap", "Snake"))
+        card_deck.append(Card("Trap", "Lava"))
+        card_deck.append(Card("Trap", "Boulder"))
+        card_deck.append(Card("Trap", "Ram"))
     for i in range(1,16):
-        card_deck.append(i) # add 15 treasure cards
+        card_deck.append(Card("Treasure", i))     # add 15 treasure cards
     return card_deck
+
+
+class Card:
+    def __init__(self, type, value):
+        self.type = type
+        self.value = value
+
+    def __str__(self):
+        return str(self.type + " " + self.value)
 
 
 class Deck:
@@ -22,7 +31,7 @@ class Deck:
         self.shuffle_deck()
 
     def __str__(self):
-        return str(self.cards)
+        return str([(cardname.type + " " + str(cardname.value)) for cardname in self.cards])        # iterate over all cards and make a list of names and values
 
     def shuffle_deck(self):
         random.shuffle(self.cards)
@@ -38,8 +47,8 @@ class Player:
         self.playerID = playerID
         self.chest = 0
         self.pocket = 0     # how much a player has on hand mid exploration
-        self.in_cave = False    # whether a player is currently in the cave
-        self.continuing = False     # the players decision to continue
+        self.in_cave = True    # whether a player is currently in the cave
+        self.continuing = True     # the players decision to continue
 
     def leave_cave(self):       # player leaves cave safely and stores their loot
         self.in_cave = False
@@ -54,6 +63,21 @@ class Player:
 
     def pickup_loot(self, amount):      # player picks up some loot
         self.pocket += amount
+
+
+class Board:
+    def __init__(self):
+        self.route = []
+        self.double_trap = None
+
+    def __str__(self):
+        return str(self.route)
+
+    def add_card(self, card):       # pick a card, if its another trap card, set double_trap to the trap card and kill the players at some point
+        self.route.append(card)
+        if card.type == "Trap":
+            if card in self.route:
+                self.double_trap = card.value
 
 
 def main():
