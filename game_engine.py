@@ -33,6 +33,29 @@ class Deck:
         return picked_card
 
 
+class Player:
+    def __init__(self, playerID):
+        self.playerID = playerID
+        self.chest = 0
+        self.pocket = 0     # how much a player has on hand mid exploration
+        self.in_cave = False    # whether a player is currently in the cave
+        self.continuing = False     # the players decision to continue
+
+    def leave_cave(self):       # player leaves cave safely and stores their loot
+        self.in_cave = False
+        self.continuing = False
+        self.chest += self.pocket
+        self.pocket = 0
+
+    def kill_player(self):      # player dies in the cave, loot is lost
+        self.pocket = 0
+        self.in_cave = False
+        self.continuing = False
+
+    def pickup_loot(self, amount):      # player picks up some loot
+        self.pocket += amount
+
+
 def main():
     fake_deck = Deck()
     print(fake_deck)
