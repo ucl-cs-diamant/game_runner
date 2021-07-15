@@ -42,8 +42,14 @@ class Card:
 
 
 class Deck:
-    def __init__(self):     # generate a full deck and shuffle it
+    def __init__(self, exclusions=None):     # generate a full deck and shuffle it
         self.cards = generate_deck()
+        if exclusions is not None:
+            for excluded_card in exclusions:
+                for card in self.cards:
+                    if card.type == excluded_card.type and card.value == excluded_card.value:
+                        self.cards.remove(card)
+                        break       # find a matching card, remove it once, and immediately break
         self.shuffle_deck()
 
     def __str__(self):
@@ -103,7 +109,7 @@ class Board:
             for board_card in self.route:
                 if card.value == board_card.value:
                     self.double_trap = True
-                    self.triggered_doubles.append(card.value)
+                    self.triggered_doubles.append(card)
                     break
         self.route.append(card)
 
@@ -131,7 +137,7 @@ def single_turn(path_deck, path_player_list, path_board):
     if path_board.route[-1].type == "Treasure":
         obtained_loot = int(path_board.route[-1].value / active_players)  # do integer division of the loot
         path_board.route[-1].value = path_board.route[-1].value % active_players  # set new value to reflect taken loot
-        for player in path_player_list:       # go through the  player list and give all the players in the cave their loot
+        for player in path_player_list:       # go through the player list and give all the players in the cave their loot
             if player.in_cave:
                 player.pickup_loot(obtained_loot)
 
@@ -194,6 +200,22 @@ def run_path(deck, player_list, board):     # runs through a path until all play
     board.reset_path()      # reset board for a new path
 
 
+def run_game():     # run a full game of diamant
+    deck, player_list, board = setup_game()
+    for path_num in range(5):      # do 5 paths
+        run_path(deck, player_list, board)
+        excluded_cards = board.triggered_doubles
+        for relic_count in range(board.relics_picked):        # add an exclusion for every picked relic
+            excluded_cards.append(Card("Relic", 5))
+        deck = Deck(excluded_cards)
+
+    winner = Player(-1)     # dummy player value
+    for player in player_list:
+        if player.chest > winner.chest:
+            winner = player
+    return winner.playerID
+
+
 def debug_run(deck, player_list, board):        # debug command to do a failed run
     deck.cards[0] = Card("Relic", 5)
     deck.cards[1] = Card("Trap", "Snake")
@@ -213,10 +235,9 @@ def debug_run(deck, player_list, board):        # debug command to do a failed r
     success = single_turn(deck, player_list, board)
     print(success)
 
-def main():
-    deck, player_list, board = setup_game()
-    run_path(deck, player_list, board)
 
+def main():
+    print(str(run_game()) + " winner winner chicken dinner!")
 
 
 if __name__ == '__main__':
