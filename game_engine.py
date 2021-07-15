@@ -115,7 +115,7 @@ class Board:
 def setup_game():
     initial_deck = Deck()
     new_player_list = []
-    for i in range(5):
+    for i in range(6):
         new_player_list.append(Player(i))
     empty_board = Board()
     return initial_deck, new_player_list, empty_board
@@ -187,8 +187,14 @@ def single_turn(path_deck, path_player_list, path_board):
     return False    # return a false to keep the expedition going
 
 
-def main():
-    deck, player_list, board = setup_game()
+def run_path(deck, player_list, board):     # runs through a path until all players leave or the run dies
+    path_complete = False
+    while not path_complete:
+        path_complete = single_turn(deck, player_list, board)
+    board.reset_path()      # reset board for a new path
+
+
+def debug_run(deck, player_list, board):        # debug command to do a failed run
     deck.cards[0] = Card("Relic", 5)
     deck.cards[1] = Card("Trap", "Snake")
     deck.cards[2] = Card("Treasure", 15)
@@ -197,15 +203,20 @@ def main():
     deck.cards[5] = Card("Relic", 5)
     deck.cards[6] = Card("Trap", "Snake")
     single_turn(deck, player_list, board)
-    success = single_turn(deck, player_list, board)
-    success = single_turn(deck, player_list, board)
-    success = single_turn(deck, player_list, board)
-    success = single_turn(deck, player_list, board)
-    success = single_turn(deck, player_list, board)
+    single_turn(deck, player_list, board)
+    single_turn(deck, player_list, board)
+    single_turn(deck, player_list, board)
+    single_turn(deck, player_list, board)
+    single_turn(deck, player_list, board)
     player_list[4].in_cave = True
     player_list[4].pocket = 100
     success = single_turn(deck, player_list, board)
     print(success)
+
+def main():
+    deck, player_list, board = setup_game()
+    run_path(deck, player_list, board)
+
 
 
 if __name__ == '__main__':
