@@ -236,6 +236,9 @@ def run_game():     # run a full game of diamant
     for player in player_list:
         if player.chest > winner.chest:
             winner = player
+        elif player.chest == winner.chest:  # if there is a draw, no one wins
+            winner = Player(-1)
+            winner.chest = player.chest
     return winner.player_id
 
 
