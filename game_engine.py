@@ -2,44 +2,41 @@ import numpy as np
 
 
 def generate_deck(exclusions):
-    card_deck = dict()
-    card_deck[Card("Relic", 5)] = 5  # add 5 relic cards
-    for trap_type in ["Spider", "Snake", "Lava", "Boulder", "Ram"]:
-        card_deck[Card("Trap", trap_type)] = 3  # 3 of each trap card
+    card_deck = []
+    for i in range(5):
+        card_deck.append(Card("Relic", 5))  # add 5 relic cards
+    for i in range(3):
+        card_deck.append(Card("Trap", "Spider"))  # 3 of each trap card
+        card_deck.append(Card("Trap", "Snake"))
+        card_deck.append(Card("Trap", "Lava"))
+        card_deck.append(Card("Trap", "Boulder"))
+        card_deck.append(Card("Trap", "Ram"))
 
-    for treasure_num in [1, 2, 3, 4, 9, 13, 14, 15, 17]:
-        card_deck[Card("Treasure", treasure_num)] = 1
-    for treasure_num in [5, 7, 11]:
-        card_deck[Card("Treasure", treasure_num)] = 2
-
-    # card_deck = {
-    #     Card("Relic", 5): 5,
-    #     Card("Trap", "Spider"): 3,
-    #     Card("Trap", "Snake"): 3,
-    #     Card("Trap", "Lava"): 3,
-    #     Card("Trap", "Boulder"): 3,
-    #     Card("Trap", "Ram"): 3,
-    #     Card("Treasure", 1): 1,
-    #     Card("Treasure", 2): 1,
-    #     Card("Treasure", 3): 1,
-    #     Card("Treasure", 4): 1,
-    #     Card("Treasure", 9): 1,
-    #     Card("Treasure", 13): 1,
-    #     Card("Treasure", 14): 1,
-    #     Card("Treasure", 15): 1,
-    #     Card("Treasure", 17): 1,
-    #     Card("Treasure", 5): 2,
-    #     Card("Treasure", 7): 2,
-    #     Card("Treasure", 11): 2,
-    # }
+    # add 15 treasure cards
+    card_deck.append(Card("Treasure", 5))
+    card_deck.append(Card("Treasure", 5))
+    card_deck.append(Card("Treasure", 9))
+    card_deck.append(Card("Treasure", 14))
+    card_deck.append(Card("Treasure", 3))
+    card_deck.append(Card("Treasure", 17))
+    card_deck.append(Card("Treasure", 2))
+    card_deck.append(Card("Treasure", 7))
+    card_deck.append(Card("Treasure", 7))
+    card_deck.append(Card("Treasure", 1))
+    card_deck.append(Card("Treasure", 11))
+    card_deck.append(Card("Treasure", 11))
+    card_deck.append(Card("Treasure", 4))
+    card_deck.append(Card("Treasure", 15))
+    card_deck.append(Card("Treasure", 13))
 
     if exclusions is not None:
-        for exclusion in exclusions:
-            card_deck[exclusion] -= 1
+        for excluded_card in exclusions:
+            for card in card_deck:
+                if card.card_type == excluded_card.card_type and card.value == excluded_card.value:
+                    card_deck.remove(card)
+                    break  # find a matching card, remove it once, and immediately break
 
-    card_deck_list = [card for card, num_cards in card_deck.items() for _ in range(num_cards)]
-
-    return card_deck_list
+    return card_deck
 
 
 class Card:
@@ -117,7 +114,7 @@ class Board:
 
     # pick a card, if its another trap card, set double_trap to the trap card and kill the players at some point
     def add_card(self, card):
-        if card.type == "Trap":
+        if card.card_type == "Trap":
             for board_card in self.route:
                 if card.value == board_card.value:
                     self.double_trap = True
@@ -139,8 +136,7 @@ def setup_game():
     return initial_deck, new_player_list, empty_board
 
 
-def single_turn(path_deck, path_player_list, path_board):
-    # advancement phase
+def advancement_phase(path_deck, path_player_list, path_board):
     path_board.add_card(path_deck.pick_card())
     active_players = len([player for player in path_player_list if player.in_cave])
     if active_players == 0:
@@ -149,24 +145,27 @@ def single_turn(path_deck, path_player_list, path_board):
     # Not actually sure if python is able to do inline extraction of these list accesses
     last_route = path_board.route[-1]  # todo: rename this, no clue if that's what this means
 
-    if last_route.type == "Treasure":
+    if last_route.card_type == "Treasure":
         obtained_loot = last_route.value // active_players  # do integer division of the loot
         last_route.value = last_route.value % active_players  # set new value to reflect taken loot
         for player in path_player_list:  # go through the player list and give all the players in the cave their loot
             if player.in_cave:
                 player.pickup_loot(obtained_loot)
 
-    if last_route.type == "Relic":  # nothing extra is done when a relic is pulled
+    if last_route.card_type == "Relic":  # nothing extra is done when a relic is pulled
         pass  # <-----------------  did you mean continue? or can this `if` be removed altogether?
 
-    if last_route.type == "Trap":
+    if last_route.card_type == "Trap":
         if path_board.double_trap:  # if its the second trap, kill all active players
             for player in path_player_list:  # go through the  player list and give all the players in the cave
                 if player.in_cave:
                     player.kill_player()
-            return True     # return a true flag to show the expedition should fail
+            return True  # return a true flag to show the expedition should fail
+    else:
+        return False
 
-    # decision phase
+
+def decision_phase(path_player_list, path_board):
     for player in path_player_list:
         if player.in_cave:
             player.decide_action()  # todo: replace with
@@ -178,7 +177,7 @@ def single_turn(path_deck, path_player_list, path_board):
 
     if leaving_players > 0:
         for board_card in path_board.route:
-            if board_card.type == "Treasure":       # split loot evenly between players on treasure cards
+            if board_card.card_type == "Treasure":       # split loot evenly between players on treasure cards
                 obtained_loot = int(board_card.value / leaving_players)
                 board_card.value = board_card.value % leaving_players
 
@@ -186,7 +185,7 @@ def single_turn(path_deck, path_player_list, path_board):
                     if player.in_cave and not player.continuing:
                         player.pickup_loot(obtained_loot)
 
-            if board_card.type == "Relic":
+            if board_card.card_type == "Relic":
                 if leaving_players == 1 and board_card.value != 0:
                     for player in path_player_list:     # find the leaving player
                         if player.in_cave and not player.continuing:
@@ -198,7 +197,7 @@ def single_turn(path_deck, path_player_list, path_board):
                             path_board.relics_picked += 1
                             board_card.value = 0
 
-            if board_card.type == "Trap":       # dont care about traps
+            if board_card.card_type == "Trap":       # dont care about traps
                 pass
 
     # once the board calculations are done, the players need to actually leave the cave
@@ -206,7 +205,15 @@ def single_turn(path_deck, path_player_list, path_board):
         if player.in_cave and not player.continuing:
             player.leave_cave()
 
-    return False    # return a false to keep the expedition going
+
+def single_turn(path_deck, path_player_list, path_board):
+    # advancement phase
+    expedition_failed = advancement_phase(path_deck, path_player_list, path_board)
+    if expedition_failed:   # propagate the failure up
+        return True
+    # decision phase
+    decision_phase(path_player_list, path_board)
+    return False
 
 
 def run_path(deck, player_list, board):     # runs through a path until all players leave or the run dies
