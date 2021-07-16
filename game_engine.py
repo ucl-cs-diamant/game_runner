@@ -96,7 +96,7 @@ class Player:
         self._dispatch_action_request()  # todo: to implement
 
         decision = np.random.randint(0, 2)
-        if decision:        # if 0 is rolled, leave the cave
+        if decision:        # if 0 is rolled leave
             self.continuing = True
             return
         self.continuing = False
@@ -232,14 +232,14 @@ def run_game():     # run a full game of diamant
             excluded_cards.append(Card("Relic", 5))
         deck = Deck(excluded_cards)
 
-    winner = Player(-1)     # dummy player value
+    winner_list = []
     for player in player_list:
-        if player.chest > winner.chest:
-            winner = player
-        elif player.chest == winner.chest:  # if there is a draw, no one wins
-            winner = Player(-1)
-            winner.chest = player.chest
-    return winner.player_id
+        if len(winner_list) == 0 or player.chest == winner_list[0].chest:  # if there is a draw, players share the win
+            winner_list.append(player)
+        elif player.chest > winner_list[0].chest:
+            winner_list = [player]
+
+    return [player.player_id for player in winner_list]
 
 
 def debug_run(deck, player_list, board):        # debug command to do a failed run
@@ -263,7 +263,8 @@ def debug_run(deck, player_list, board):        # debug command to do a failed r
 
 
 def main():
-    print(str(run_game()) + " winner winner chicken dinner!")
+    winners = run_game()
+    print(str(winners) + " are the winners!")
 
 
 if __name__ == '__main__':
