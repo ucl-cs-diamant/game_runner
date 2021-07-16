@@ -33,12 +33,12 @@ def generate_deck():
 
 
 class Card:
-    def __init__(self, type, value):
-        self.type = type
+    def __init__(self, card_type, value):
+        self.card_type = card_type
         self.value = value
 
     def __str__(self):
-        return str(self.type + " " + self.value)
+        return str(self.card_type + " " + self.value)
 
 
 class Deck:
@@ -47,13 +47,14 @@ class Deck:
         if exclusions is not None:
             for excluded_card in exclusions:
                 for card in self.cards:
-                    if card.type == excluded_card.type and card.value == excluded_card.value:
+                    if card.card_type == excluded_card.type and card.value == excluded_card.value:
                         self.cards.remove(card)
                         break       # find a matching card, remove it once, and immediately break
         self.shuffle_deck()
 
     def __str__(self):
-        return str([(cardname.type + " " + str(cardname.value)) for cardname in self.cards])        # iterate over all cards and make a list of names and values
+        # iterate over all cards and make a list of names and values
+        return str([(card_name.card_type + " " + str(card_name.value)) for card_name in self.cards])
 
     def shuffle_deck(self):
         random.shuffle(self.cards)
@@ -65,8 +66,8 @@ class Deck:
 
 
 class Player:
-    def __init__(self, playerID):
-        self.playerID = playerID
+    def __init__(self, player_id):
+        self.player_id = player_id
         self.chest = 0
         self.pocket = 0     # how much a player has on hand mid exploration
         self.in_cave = True    # whether a player is currently in the cave
@@ -99,12 +100,13 @@ class Board:
         self.route = []
         self.double_trap = False
         self.triggered_doubles = []
-        self.relics_picked = 0       # note: relics are only counted when actually collected by an explorer on the way out
+        self.relics_picked = 0  # note: relics are only counted when actually collected by an explorer on the way out
 
     def __str__(self):
         return str(self.route)
 
-    def add_card(self, card):       # pick a card, if its another trap card, set double_trap to the trap card and kill the players at some point
+    # pick a card, if its another trap card, set double_trap to the trap card and kill the players at some point
+    def add_card(self, card):
         if card.type == "Trap":
             for board_card in self.route:
                 if card.value == board_card.value:
@@ -113,7 +115,7 @@ class Board:
                     break
         self.route.append(card)
 
-    def reset_path(self):      # intentionally left out triggered doubles so it carries between paths
+    def reset_path(self):  # intentionally left out triggered doubles so it carries between paths
         self.route = []
         self.double_trap = None
 
@@ -133,11 +135,11 @@ def single_turn(path_deck, path_player_list, path_board):
     path_board.add_card(path_deck.pick_card())
     active_players = len([player for player in path_player_list if player.in_cave])
     if active_players == 0:
-        return True     # return immediately to move to the next expedition
+        return True  # return immediately to move to the next expedition
     if path_board.route[-1].type == "Treasure":
         obtained_loot = int(path_board.route[-1].value / active_players)  # do integer division of the loot
         path_board.route[-1].value = path_board.route[-1].value % active_players  # set new value to reflect taken loot
-        for player in path_player_list:       # go through the player list and give all the players in the cave their loot
+        for player in path_player_list:  # go through the player list and give all the players in the cave their loot
             if player.in_cave:
                 player.pickup_loot(obtained_loot)
 
@@ -157,7 +159,8 @@ def single_turn(path_deck, path_player_list, path_board):
         if player.in_cave:
             player.decide_action()
 
-    leaving_players = len([player for player in path_player_list if player.in_cave and not player.continuing])  # number of players leaving
+    # number of players leaving
+    leaving_players = len([player for player in path_player_list if player.in_cave and not player.continuing])
 
     # split the loot evenly between all leaving players, if one player is leaving, collect the relics
 
@@ -175,7 +178,8 @@ def single_turn(path_deck, path_player_list, path_board):
                 if leaving_players == 1 and board_card.value != 0:
                     for player in path_player_list:     # find the leaving player
                         if player.in_cave and not player.continuing:
-                            if path_board.relics_picked >= 3:        # increase the worth of a relic if its the last 2 from 5 to 10
+                            # increase the worth of a relic if its the last 2 from 5 to 10
+                            if path_board.relics_picked >= 3:
                                 player.pickup_loot(board_card.value * 2)
                             else:
                                 player.pickup_loot(board_card.value)
@@ -185,7 +189,7 @@ def single_turn(path_deck, path_player_list, path_board):
             if board_card.type == "Trap":       # dont care about traps
                 pass
 
-    # once the board calcs are done, the players need to actually leave the cave
+    # once the board calculations are done, the players need to actually leave the cave
     for player in path_player_list:
         if player.in_cave and not player.continuing:
             player.leave_cave()
@@ -213,7 +217,7 @@ def run_game():     # run a full game of diamant
     for player in player_list:
         if player.chest > winner.chest:
             winner = player
-    return winner.playerID
+    return winner.player_id
 
 
 def debug_run(deck, player_list, board):        # debug command to do a failed run
