@@ -1,35 +1,45 @@
-import random
+import numpy as np
 
 
-def generate_deck():
-    card_deck = []
-    for i in range(5):
-        card_deck.append(Card("Relic", 5))   # add 5 relic cards
-    for i in range(3):
-        card_deck.append(Card("Trap", "Spider"))    # 3 of each trap card
-        card_deck.append(Card("Trap", "Snake"))
-        card_deck.append(Card("Trap", "Lava"))
-        card_deck.append(Card("Trap", "Boulder"))
-        card_deck.append(Card("Trap", "Ram"))
+def generate_deck(exclusions):
+    card_deck = dict()
+    card_deck[Card("Relic", 5)] = 5  # add 5 relic cards
+    for trap_type in ["Spider", "Snake", "Lava", "Boulder", "Ram"]:
+        card_deck[Card("Trap", trap_type)] = 3  # 3 of each trap card
 
-    # add 15 treasure cards
-    card_deck.append(Card("Treasure", 5))
-    card_deck.append(Card("Treasure", 5))
-    card_deck.append(Card("Treasure", 9))
-    card_deck.append(Card("Treasure", 14))
-    card_deck.append(Card("Treasure", 3))
-    card_deck.append(Card("Treasure", 17))
-    card_deck.append(Card("Treasure", 2))
-    card_deck.append(Card("Treasure", 7))
-    card_deck.append(Card("Treasure", 7))
-    card_deck.append(Card("Treasure", 1))
-    card_deck.append(Card("Treasure", 11))
-    card_deck.append(Card("Treasure", 11))
-    card_deck.append(Card("Treasure", 4))
-    card_deck.append(Card("Treasure", 15))
-    card_deck.append(Card("Treasure", 13))
+    for treasure_num in [1, 2, 3, 4, 9, 13, 14, 15, 17]:
+        card_deck[Card("Treasure", treasure_num)] = 1
+    for treasure_num in [5, 7, 11]:
+        card_deck[Card("Treasure", treasure_num)] = 2
 
-    return card_deck
+    # card_deck = {
+    #     Card("Relic", 5): 5,
+    #     Card("Trap", "Spider"): 3,
+    #     Card("Trap", "Snake"): 3,
+    #     Card("Trap", "Lava"): 3,
+    #     Card("Trap", "Boulder"): 3,
+    #     Card("Trap", "Ram"): 3,
+    #     Card("Treasure", 1): 1,
+    #     Card("Treasure", 2): 1,
+    #     Card("Treasure", 3): 1,
+    #     Card("Treasure", 4): 1,
+    #     Card("Treasure", 9): 1,
+    #     Card("Treasure", 13): 1,
+    #     Card("Treasure", 14): 1,
+    #     Card("Treasure", 15): 1,
+    #     Card("Treasure", 17): 1,
+    #     Card("Treasure", 5): 2,
+    #     Card("Treasure", 7): 2,
+    #     Card("Treasure", 11): 2,
+    # }
+
+    if exclusions is not None:
+        for exclusion in exclusions:
+            card_deck[exclusion] -= 1
+
+    card_deck_list = [card for card, num_cards in card_deck.items() for _ in range(num_cards)]
+
+    return card_deck_list
 
 
 class Card:
@@ -43,13 +53,7 @@ class Card:
 
 class Deck:
     def __init__(self, exclusions=None):     # generate a full deck and shuffle it
-        self.cards = generate_deck()
-        if exclusions is not None:
-            for excluded_card in exclusions:
-                for card in self.cards:
-                    if card.card_type == excluded_card.type and card.value == excluded_card.value:
-                        self.cards.remove(card)
-                        break       # find a matching card, remove it once, and immediately break
+        self.cards = generate_deck(exclusions)
         self.shuffle_deck()
 
     def __str__(self):
@@ -57,7 +61,8 @@ class Deck:
         return str([(card_name.card_type + " " + str(card_name.value)) for card_name in self.cards])
 
     def shuffle_deck(self):
-        random.shuffle(self.cards)
+        # random.shuffle(self.cards)
+        np.random.shuffle(self.cards)
 
     def pick_card(self):        # pick a card from the first element and remove it from the deck
         picked_card = self.cards[0]
@@ -87,12 +92,17 @@ class Player:
     def pickup_loot(self, amount):      # player picks up some loot
         self.pocket += amount
 
+    def _dispatch_action_request(self):  # todo: to implement
+        pass
+
     def decide_action(self):        # dummy roll 50/50 on leave/stay function
-        decision = random.randint(0, 1)
-        if decision == 0:        # if 0 is rolled, leave the cave
-            self.continuing = False
-        else:
+        self._dispatch_action_request()  # todo: to implement
+
+        decision = np.random.randint(0, 2)
+        if decision:        # if 0 is rolled, leave the cave
             self.continuing = True
+            return
+        self.continuing = False
 
 
 class Board:
@@ -130,23 +140,26 @@ def setup_game():
 
 
 def single_turn(path_deck, path_player_list, path_board):
-
     # advancement phase
     path_board.add_card(path_deck.pick_card())
     active_players = len([player for player in path_player_list if player.in_cave])
     if active_players == 0:
         return True  # return immediately to move to the next expedition
-    if path_board.route[-1].type == "Treasure":
-        obtained_loot = int(path_board.route[-1].value / active_players)  # do integer division of the loot
-        path_board.route[-1].value = path_board.route[-1].value % active_players  # set new value to reflect taken loot
+
+    # Not actually sure if python is able to do inline extraction of these list accesses
+    last_route = path_board.route[-1]  # todo: rename this, no clue if that's what this means
+
+    if last_route.type == "Treasure":
+        obtained_loot = last_route.value // active_players  # do integer division of the loot
+        last_route.value = last_route.value % active_players  # set new value to reflect taken loot
         for player in path_player_list:  # go through the player list and give all the players in the cave their loot
             if player.in_cave:
                 player.pickup_loot(obtained_loot)
 
-    if path_board.route[-1].type == "Relic":  # nothing extra is done when a relic is pulled
-        pass
+    if last_route.type == "Relic":  # nothing extra is done when a relic is pulled
+        pass  # <-----------------  did you mean continue? or can this `if` be removed altogether?
 
-    if path_board.route[-1].type == "Trap":
+    if last_route.type == "Trap":
         if path_board.double_trap:  # if its the second trap, kill all active players
             for player in path_player_list:  # go through the  player list and give all the players in the cave
                 if player.in_cave:
@@ -154,10 +167,9 @@ def single_turn(path_deck, path_player_list, path_board):
             return True     # return a true flag to show the expedition should fail
 
     # decision phase
-
     for player in path_player_list:
         if player.in_cave:
-            player.decide_action()
+            player.decide_action()  # todo: replace with
 
     # number of players leaving
     leaving_players = len([player for player in path_player_list if player.in_cave and not player.continuing])
