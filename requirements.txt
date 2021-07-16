@@ -1,3 +1,4 @@
 pre-commit
 flake8
-numpy
+numpy~=1.21.0
+requests~=2.25.1

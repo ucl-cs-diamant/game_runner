@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def generate_deck(exclusions):
+def generate_deck(exclusions: list) -> list:
     card_deck = []
     for i in range(5):
         card_deck.append(Card("Relic", 5))  # add 5 relic cards
