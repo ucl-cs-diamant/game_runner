@@ -1,9 +1,15 @@
 # from collections.abc import Callable
+import asyncio
+import json
+import os
+
 import requests
 import time
 import concurrent.futures
 import tempfile
 import tarfile
+import subprocess
+import shutil
 
 
 # todo: deal with http/https later
@@ -16,6 +22,7 @@ class EngineInterface:
         self.game_id = None
         self.server_address = server_address
         self.server_port = server_port
+        self.player_communication_channel = None
         self.ready = False
         # self.ready_callback = ready_callback
 
@@ -62,14 +69,66 @@ class EngineInterface:
         return True
 
     def __launch_players(self):
-        pass
+        for player_id in self.players:
+            shutil.copy2("start_player.sh", os.path.join(self.players_code_directories[player_id], "start_player.sh"))
+            self.player_processes[player_id] = subprocess.Popen(['/bin/bash', './start_player.sh'],
+                                                                cwd=self.players_code_directories[player_id],
+                                                                env={'player_id': player_id})
+        # check for players that exited prematurely, terminate game if players exited/crashed
 
-    def init_game(self):
+    async def __start_socket_server(self):
+        self.player_communication_channel = PlayerCommunication()
+        await self.player_communication_channel.start_socket_server()
+
+    async def init_game(self):
         self.__fetch_match_data()
         if not self.__prepare_player_code():
             pass
             # handle game abortion
+        await self.__start_socket_server()
         self.__launch_players()
         self.ready = True
         # if self.ready_callback is not None:
         #     self.ready_callback()
+
+    async def request_decisions(self):
+        return await self.player_communication_channel.broadcast_decision_request()
+
+    def report_outcome(self, winning_players):
+        url = f"http://{self.server_address}:{self.server_port}/report_outcome/"
+        _ = requests.post(url, data={'outcome': 'ok', 'winners': winning_players})
+        # todo: implement error checking
+        exit(0)
+
+
+class PlayerCommunication:
+    def __init__(self):
+        self.sock_address = '/tmp/game.sock'
+        self.player_comm_channels = {}
+
+        try:
+            os.unlink(self.sock_address)
+        except OSError:
+            if os.path.exists(self.sock_address):
+                raise
+
+    async def __broadcast_decision_request(self, player_id):
+        self.player_comm_channels[player_id][1].write("TODO: PUT SOMETHING RELEVANT HERE")
+        await self.player_comm_channels[player_id][1].drain()
+
+    async def broadcast_decision_request(self):
+        await asyncio.gather(self.__broadcast_decision_request(player_id)
+                             for player_id in self.player_comm_channels.keys())
+
+        # todo: put in the logic for reading their response
+
+    def __client_connected_cb(self, reader, writer):
+        print(self.sock_address, " - client connected")
+
+        client_identification = reader.read()
+
+        client_identification = json.loads(client_identification)
+        self.player_comm_channels[client_identification['player_id']] = (reader, writer)
+
+    async def start_socket_server(self):
+        await asyncio.start_unix_server(self.__client_connected_cb, path=self.sock_address)

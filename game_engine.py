@@ -1,4 +1,6 @@
 import numpy as np
+import asyncio
+from diamant_game_interface import EngineInterface
 
 
 def generate_deck(exclusions: list) -> list:
@@ -92,14 +94,13 @@ class Player:
     def _dispatch_action_request(self):  # todo: to implement
         pass
 
-    def decide_action(self):        # dummy roll 50/50 on leave/stay function
-        self._dispatch_action_request()  # todo: to implement
-
-        decision = np.random.randint(0, 2)
-        if decision:        # if 0 is rolled leave
-            self.continuing = True
-            return
-        self.continuing = False
+    # def decide_action(self, ei):        # dummy roll 50/50 on leave/stay function
+    #
+    #     decision = np.random.randint(0, 2)
+    #     if decision:        # if 0 is rolled leave
+    #         self.continuing = True
+    #         return
+    #     self.continuing = False
 
 
 class Board:
@@ -129,11 +130,8 @@ class Board:
 
 def setup_game():
     initial_deck = Deck()
-    new_player_list = []
-    for i in range(6):
-        new_player_list.append(Player(i))
     empty_board = Board()
-    return initial_deck, new_player_list, empty_board
+    return initial_deck, empty_board
 
 
 def advancement_phase(path_deck, path_player_list, path_board):
@@ -165,10 +163,13 @@ def advancement_phase(path_deck, path_player_list, path_board):
         return False
 
 
-def decision_phase(path_player_list, path_board):
-    for player in path_player_list:
-        if player.in_cave:
-            player.decide_action()  # todo: replace with
+async def decision_phase(path_player_list, path_board, ei):
+    # for player in path_player_list:
+    #     if player.in_cave:
+    #         player.decide_action()
+    player_decisions = await ei.request_decisions()
+    for player_decision in player_decisions:
+        path_player_list[player_decision["player_id"]].continuing = player_decision["decision"]
 
     # number of players leaving
     leaving_players = len([player for player in path_player_list if player.in_cave and not player.continuing])
@@ -206,27 +207,28 @@ def decision_phase(path_player_list, path_board):
             player.leave_cave()
 
 
-def single_turn(path_deck, path_player_list, path_board):
+async def single_turn(path_deck, path_player_list, path_board, ei):
     # advancement phase
     expedition_failed = advancement_phase(path_deck, path_player_list, path_board)
     if expedition_failed:   # propagate the failure up
         return True
     # decision phase
-    decision_phase(path_player_list, path_board)
+    await decision_phase(path_player_list, path_board, ei)
     return False
 
 
-def run_path(deck, player_list, board):     # runs through a path until all players leave or the run dies
+async def run_path(deck, player_list, board, ei):     # runs through a path until all players leave or the run dies
     path_complete = False
     while not path_complete:
-        path_complete = single_turn(deck, player_list, board)
+        path_complete = await single_turn(deck, player_list, board, ei)
     board.reset_path()      # reset board for a new path
 
 
-def run_game():     # run a full game of diamant
-    deck, player_list, board = setup_game()
+async def run_game(engine_interface):     # run a full game of diamant
+    deck, board = setup_game()
+    player_list = [Player(player_id) for player_id in engine_interface.players]
     for path_num in range(5):      # do 5 paths
-        run_path(deck, player_list, board)
+        await run_path(deck, player_list, board, engine_interface)
         excluded_cards = board.triggered_doubles
         for relic_count in range(board.relics_picked):        # add an exclusion for every picked relic
             excluded_cards.append(Card("Relic", 5))
@@ -242,30 +244,31 @@ def run_game():     # run a full game of diamant
     return [player.player_id for player in winner_list]
 
 
-def debug_run(deck, player_list, board):        # debug command to do a failed run
-    deck.cards[0] = Card("Relic", 5)
-    deck.cards[1] = Card("Trap", "Snake")
-    deck.cards[2] = Card("Treasure", 15)
-    deck.cards[3] = Card("Relic", 5)
-    deck.cards[4] = Card("Relic", 5)
-    deck.cards[5] = Card("Relic", 5)
-    deck.cards[6] = Card("Trap", "Snake")
-    single_turn(deck, player_list, board)
-    single_turn(deck, player_list, board)
-    single_turn(deck, player_list, board)
-    single_turn(deck, player_list, board)
-    single_turn(deck, player_list, board)
-    single_turn(deck, player_list, board)
-    player_list[4].in_cave = True
-    player_list[4].pocket = 100
-    success = single_turn(deck, player_list, board)
-    print(success)
+# def debug_run(deck, player_list, board):        # debug command to do a failed run
+#     deck.cards[0] = Card("Relic", 5)
+#     deck.cards[1] = Card("Trap", "Snake")
+#     deck.cards[2] = Card("Treasure", 15)
+#     deck.cards[3] = Card("Relic", 5)
+#     deck.cards[4] = Card("Relic", 5)
+#     deck.cards[5] = Card("Relic", 5)
+#     deck.cards[6] = Card("Trap", "Snake")
+#     single_turn(deck, player_list, board)
+#     single_turn(deck, player_list, board)
+#     single_turn(deck, player_list, board)
+#     single_turn(deck, player_list, board)
+#     single_turn(deck, player_list, board)
+#     single_turn(deck, player_list, board)
+#     player_list[4].in_cave = True
+#     player_list[4].pocket = 100
+#     success = single_turn(deck, player_list, board)
+#     print(success)
 
 
-def main():
-    winners = run_game()
-    print(str(winners) + " are the winners!")
+async def main():
+    engine_interface = EngineInterface('localhost')  # todo: replace with environment variables
+    await engine_interface.init_game()
+    print(str(await run_game(engine_interface)) + " winner winner chicken dinner!")
 
 
 if __name__ == '__main__':
-    main()
+    asyncio.run(main())
