@@ -96,6 +96,10 @@ class PlayerTestCase(unittest.TestCase):
     def test_player_kill(self):
         player = game_engine.Player("123")
 
+        player.pickup_loot(10)
+
+        player.kill_player()
+
         self.assertEqual(player.pocket, 0)
         self.assertFalse(player.in_cave)
         self.assertFalse(plaeyr.continuig)
