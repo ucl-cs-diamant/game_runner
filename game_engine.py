@@ -163,7 +163,6 @@ def advancement_phase(path_deck, path_player_list, path_board):
     else:
         return False
 
-
 async def decision_phase(path_player_list, path_board, ei):
     # for player in path_player_list:
     #     if player.in_cave:
@@ -172,25 +171,25 @@ async def decision_phase(path_player_list, path_board, ei):
     for player_decision in player_decisions:
         path_player_list[player_decision["player_id"]].continuing = player_decision["decision"]
 
-    # number of players leaving
-    leaving_players = len([player for player in path_player_list if player.in_cave and not player.continuing])
+
+    # leaving players leaving and number of leaving players
+    leaving_players = [player for player in path_player_list if player.in_cave and not player.continuing] 
+    no_leaving_players = len(leaving_players)
 
     # split the loot evenly between all leaving players, if one player is leaving, collect the relics
 
-    if leaving_players > 0:
+    if no_leaving_players  > 0:
         for board_card in path_board.route:
             if board_card.card_type == "Treasure":       # split loot evenly between players on treasure cards
-                obtained_loot = int(board_card.value / leaving_players)
-                board_card.value = board_card.value % leaving_players
+                obtained_loot = int(board_card.value / no_leaving_players )
+                board_card.value = board_card.value % no_leaving_players 
 
-                for player in path_player_list:
-                    if player.in_cave and not player.continuing:
+                for player in leaving_players:
                         player.pickup_loot(obtained_loot)
 
             if board_card.card_type == "Relic":
-                if leaving_players == 1 and board_card.value != 0:
-                    for player in path_player_list:     # find the leaving player
-                        if player.in_cave and not player.continuing:
+                if no_leaving_players == 1 and board_card.value != 0:
+                    for player in leaving_players:
                             # increase the worth of a relic if its the last 2 from 5 to 10
                             if path_board.relics_picked >= 3:
                                 player.pickup_loot(board_card.value * 2)
@@ -203,8 +202,7 @@ async def decision_phase(path_player_list, path_board, ei):
                 pass
 
     # once the board calculations are done, the players need to actually leave the cave
-    for player in path_player_list:
-        if player.in_cave and not player.continuing:
+    for player in leaving_players:
             player.leave_cave()
 
 
