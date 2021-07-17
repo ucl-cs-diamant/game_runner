@@ -1,9 +1,10 @@
 import numpy as np
 import asyncio
 from diamant_game_interface import EngineInterface
+from typing import Union
 
 
-def generate_deck(exclusions: list) -> list:
+def generate_deck(exclusions: Union[list, None]) -> list:
     card_deck = []
     for i in range(5):
         card_deck.append(Card("Relic", 5))  # add 5 relic cards
@@ -47,7 +48,7 @@ class Card:
         self.value = value
 
     def __str__(self):
-        return str(self.card_type + " " + self.value)
+        return str(self.card_type + " " + str(self.value))
 
 
 class Deck:
@@ -141,7 +142,7 @@ def advancement_phase(path_deck, path_player_list, path_board):
         return True  # return immediately to move to the next expedition
 
     # Not actually sure if python is able to do inline extraction of these list accesses
-    last_route = path_board.route[-1]  # todo: rename this, no clue if that's what this means
+    last_route = path_board.route[-1]
 
     if last_route.card_type == "Treasure":
         obtained_loot = last_route.value // active_players  # do integer division of the loot
