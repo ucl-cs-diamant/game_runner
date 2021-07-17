@@ -126,7 +126,7 @@ class Board:
 
     def reset_path(self):  # intentionally left out triggered doubles so it carries between paths
         self.route = []
-        self.double_trap = None
+        self.double_trap = False
 
 
 def setup_game():
