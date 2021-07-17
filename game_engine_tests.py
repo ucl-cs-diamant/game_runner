@@ -97,12 +97,12 @@ class PlayerTestCase(unittest.TestCase):
         player = game_engine.Player("123")
 
         player.pickup_loot(10)
-
+        
         player.kill_player()
 
         self.assertEqual(player.pocket, 0)
         self.assertFalse(player.in_cave)
-        self.assertFalse(plaeyr.continuig)
+        self.assertFalse(player.continuing)
 
 
 if __name__ == "__main__":
