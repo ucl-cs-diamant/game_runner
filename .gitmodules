@@ -1,0 +1,3 @@
+[submodule "diamant_game_interface"]
+	path = diamant_game_interface
+	url = https://github.com/ucl-cs-diamant/diamant_game_interface.git
