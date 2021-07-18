@@ -38,6 +38,7 @@ class DeckTestCase(unittest.TestCase):
 
     def test_deck_constructor_exclusion(self):
         deck = game_engine.Deck([game_engine.Card("Relic", 5), game_engine.Card("Trap", "Snake")])
+
         self.assertEqual(len(deck.cards), 33)
 
         relics = [card for card in deck.cards if card.card_type == "Relic"]
@@ -57,6 +58,51 @@ class DeckTestCase(unittest.TestCase):
 
         self.assertEqual(first_card, picked_card)
         self.assertEqual(second_card, deck.cards[0])
+
+
+
+class PlayerTestCase(unittest.TestCase):
+    def test_player_creation_clean(self):
+        player = game_engine.Player("123")
+
+        self.assertEqual(player.chest, 0)
+        self.assertEqual(player.pocket, 0)
+        self.assertTrue(player.in_cave)
+        self.assertTrue(player.continuing)
+
+    def test_player_pickup_loot(self):
+        player = game_engine.Player("123")
+
+        pickup_amount = 10
+        player.pickup_loot(10)
+
+        self.assertEqual(player.pocket, pickup_amount)
+
+    def test_player_leave_cave(self):
+        player = game_engine.Player("123")
+
+        chest_amount = player.chest
+
+        pickup_amount = 10
+        player.pickup_loot(pickup_amount)
+
+        player.leave_cave()
+
+        self.assertEqual(player.chest, chest_amount + pickup_amount)
+        self.assertEqual(player.pocket, 0)
+        self.assertFalse(player.continuing)
+        self.assertFalse(player.in_cave)
+
+    def test_player_kill(self):
+        player = game_engine.Player("123")
+
+        player.pickup_loot(10)
+        
+        player.kill_player()
+
+        self.assertEqual(player.pocket, 0)
+        self.assertFalse(player.in_cave)
+        self.assertFalse(player.continuing)
 
 
 class BoardTestCase(unittest.TestCase):
