@@ -136,14 +136,13 @@ def setup_game():
 
 
 def handle_treasure_loot(board_card, players):
-    # board_card is either the new card, or the card on the route as the players are leaving 
+    # board_card is either the new card, or the card on the route as the players are leaving
     # players are the players who decided to leave or the remaining active players
-    
-    no_players = len(players);
-    obtained_loot = board_card.value // no_players # do integer division of the loot
-    board_card.value = board_card.value % no_players # set new value to reflect taken loot
+    no_players = len(players)
+    obtained_loot = board_card.value // no_players  # do integer division of the loot
+    board_card.value = board_card.value % no_players  # set new value to reflect taken loot
 
-    for player in players: # go through the provided player list and give them the divided loot
+    for player in players:  # go through the provided player list and give them the divided loot
         player.pickup_loot(obtained_loot)
 
 
@@ -166,11 +165,12 @@ def advancement_phase(path_deck, path_player_list, path_board):
 
     if last_route.card_type == "Trap":
         if path_board.double_trap:  # if its the second trap, kill all active players
-            for player in active_players:  # go through the  player list and kill all the remaining active players in the cave
+            for player in active_players:  # go through the  player list and kill all the remaining active players
                 player.kill_player()
             return True  # return a true flag to show the expedition should fail
     else:
         return False
+
 
 async def decision_phase(path_player_list, path_board, ei):
     # for player in path_player_list:
@@ -179,10 +179,8 @@ async def decision_phase(path_player_list, path_board, ei):
     player_decisions = await ei.request_decisions()
     for player_decision in player_decisions:
         path_player_list[player_decision["player_id"]].continuing = player_decision["decision"]
-
-
     # leaving players leaving and number of leaving players
-    leaving_players = [player for player in path_player_list if player.in_cave and not player.continuing] 
+    leaving_players = [player for player in path_player_list if player.in_cave and not player.continuing]
     no_leaving_players = len(leaving_players)
 
     # split the loot evenly between all leaving players, if one player is leaving, collect the relics
@@ -192,23 +190,25 @@ async def decision_phase(path_player_list, path_board, ei):
             if board_card.card_type == "Treasure":       # split loot evenly between players on treasure cards
                 handle_treasure_loot(board_card, leaving_players)
 
+            # <-- do we need to check that board_card.value != 0?
+            # Aren't relic always worth more than 0 even when the Card object is created?
             if board_card.card_type == "Relic":
-                if no_leaving_players == 1 and board_card.value != 0: # <-- do we need to check that board_card.value != 0? Aren't relic always worth more than 0 even when the Card object is created?
+                if no_leaving_players == 1 and board_card.value != 0:
                     for player in leaving_players:
-                            # increase the worth of a relic if its the last 2 from 5 to 10
-                            if path_board.relics_picked >= 3:
-                                player.pickup_loot(board_card.value * 2)
-                            else:
-                                player.pickup_loot(board_card.value)
-                            path_board.relics_picked += 1
-                            board_card.value = 0
+                        # increase the worth of a relic if its the last 2 from 5 to 10
+                        if path_board.relics_picked >= 3:
+                            player.pickup_loot(board_card.value * 2)
+                        else:
+                            player.pickup_loot(board_card.value)
+                        path_board.relics_picked += 1
+                        board_card.value = 0
 
             if board_card.card_type == "Trap":       # dont care about traps
                 pass
 
     # once the board calculations are done, the players need to actually leave the cave
     for player in leaving_players:
-            player.leave_cave()
+        player.leave_cave()
 
 
 async def single_turn(path_deck, path_player_list, path_board, ei):
