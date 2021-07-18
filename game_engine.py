@@ -137,28 +137,28 @@ def setup_game():
 
 def advancement_phase(path_deck, path_player_list, path_board):
     path_board.add_card(path_deck.pick_card())
-    active_players = len([player for player in path_player_list if player.in_cave])
-    if active_players == 0:
+
+    active_players = [player for player in path_player_list if player.in_cave]
+    no_active_players = len(active_players)
+    if no_active_players == 0:
         return True  # return immediately to move to the next expedition
 
     # Not actually sure if python is able to do inline extraction of these list accesses
     last_route = path_board.route[-1]
 
     if last_route.card_type == "Treasure":
-        obtained_loot = last_route.value // active_players  # do integer division of the loot
-        last_route.value = last_route.value % active_players  # set new value to reflect taken loot
-        for player in path_player_list:  # go through the player list and give all the players in the cave their loot
-            if player.in_cave:
-                player.pickup_loot(obtained_loot)
+        obtained_loot = last_route.value // no_active_players  # do integer division of the loot
+        last_route.value = last_route.value % no_active_players  # set new value to reflect taken loot
+        for player in active_players:  # go through the player list and give all the players in the cave their loot
+            player.pickup_loot(obtained_loot)
 
     if last_route.card_type == "Relic":  # nothing extra is done when a relic is pulled
         pass  # <-----------------  did you mean continue? or can this `if` be removed altogether?
 
     if last_route.card_type == "Trap":
         if path_board.double_trap:  # if its the second trap, kill all active players
-            for player in path_player_list:  # go through the  player list and give all the players in the cave
-                if player.in_cave:
-                    player.kill_player()
+            for player in active_players:  # go through the  player list and kill all the remaining active players in the cave
+                player.kill_player()
             return True  # return a true flag to show the expedition should fail
     else:
         return False
