@@ -111,7 +111,7 @@ class BoardTestCase(unittest.TestCase):
         self.assertEqual(board.route, [])
         self.assertEqual(board.double_trap, False)
         self.assertEqual(board.relics_picked, 0)
-        self.assertEqual(board.triggered_doubles, [])
+        self.assertEqual(board.excluded_cards, [])
 
     def test_board_str(self):
         board = game_engine.Board()
@@ -129,8 +129,24 @@ class BoardTestCase(unittest.TestCase):
         self.assertEqual(board.route[0].card_type, "Treasure")
         self.assertEqual(board.route[1].card_type, "Relic")
         self.assertEqual(board.route[2].card_type, "Trap")
-        self.assertEqual(board.triggered_doubles[0].value, "Snake")
-        self.assertEqual(board.double_trap, True)
+        self.assertEqual(board.excluded_cards[0].value, 5)
+        self.assertEqual(board.excluded_cards[1].value, "Snake")
+        self.assertEqual(board.relics_picked, 1)
+        self.assertTrue(board.double_trap)
+
+    def test_board_add_relics(self):
+        board = game_engine.Board()
+        board.add_card(game_engine.Card("Relic", 5))
+        board.add_card(game_engine.Card("Relic", 5))
+        board.add_card(game_engine.Card("Relic", 5))
+        board.add_card(game_engine.Card("Relic", 5))
+        board.add_card(game_engine.Card("Relic", 5))
+
+        for i in range(3):
+            self.assertEqual(board.route[i].value, 5)
+
+        self.assertEqual(board.route[3].value, 10)
+        self.assertEqual(board.route[4].value, 10)
 
     def test_board_reset_path(self):
         board = game_engine.Board()
@@ -142,8 +158,9 @@ class BoardTestCase(unittest.TestCase):
 
         board.reset_path()
         self.assertEqual(board.route, [])
-        self.assertEqual(board.double_trap, False)
-        self.assertEqual(board.triggered_doubles[0].value, "Snake")
+        self.assertFalse(board.double_trap)
+        self.assertEqual(board.relics_picked, 1)
+        self.assertEqual(board.excluded_cards[0].value, 5)
 
 
 if __name__ == '__main__':
