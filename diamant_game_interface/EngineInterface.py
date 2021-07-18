@@ -85,7 +85,7 @@ class EngineInterface:
         if not self.__prepare_player_code():
             pass
             # handle game abortion
-        await self.__start_socket_server()
+        await self.__start_socket_server()  # todo: make sure socket server is ready before spawning players
         self.__launch_players()
         self.ready = True
         # if self.ready_callback is not None:

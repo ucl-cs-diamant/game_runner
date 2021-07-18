@@ -3,7 +3,6 @@ from collections.abc import Callable
 import socket
 import json
 import sys
-import time
 
 
 class PlayerInterface:
@@ -20,13 +19,14 @@ class PlayerInterface:
 
         self.__send_message({"player_id": os.environ.get("player_id")})
         # perhaps add ack somewhere here if needed
-        self.sleep_time = 0.02
 
     def start(self):
         while True:
-            time.sleep(self.sleep_time)
+            game_state = self.__receive_msg()
+            decision: bool = self.callback(game_state)
+            self.__send_message({"decision": decision})
 
-    def __receive_msg(self):
+    def __receive_msg(self) -> dict:
         bytes_buffer = bytearray()
         bytes_read = 0
         while bytes_read < 4:
