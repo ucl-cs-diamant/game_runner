@@ -135,30 +135,38 @@ def setup_game():
     return initial_deck, empty_board
 
 
+def handle_treasure_loot(board_card, players):
+    # board_card is either the new card, or the card on the route as the players are leaving
+    # players are the players who decided to leave or the remaining active players
+    no_players = len(players)
+    obtained_loot = board_card.value // no_players  # do integer division of the loot
+    board_card.value = board_card.value % no_players  # set new value to reflect taken loot
+
+    for player in players:  # go through the provided player list and give them the divided loot
+        player.pickup_loot(obtained_loot)
+
+
 def advancement_phase(path_deck, path_player_list, path_board):
     path_board.add_card(path_deck.pick_card())
-    active_players = len([player for player in path_player_list if player.in_cave])
-    if active_players == 0:
+
+    active_players = [player for player in path_player_list if player.in_cave]
+    no_active_players = len(active_players)
+    if no_active_players == 0:
         return True  # return immediately to move to the next expedition
 
     # Not actually sure if python is able to do inline extraction of these list accesses
     last_route = path_board.route[-1]
 
     if last_route.card_type == "Treasure":
-        obtained_loot = last_route.value // active_players  # do integer division of the loot
-        last_route.value = last_route.value % active_players  # set new value to reflect taken loot
-        for player in path_player_list:  # go through the player list and give all the players in the cave their loot
-            if player.in_cave:
-                player.pickup_loot(obtained_loot)
+        handle_treasure_loot(last_route, active_players)
 
     if last_route.card_type == "Relic":  # nothing extra is done when a relic is pulled
         pass  # <-----------------  did you mean continue? or can this `if` be removed altogether?
 
     if last_route.card_type == "Trap":
         if path_board.double_trap:  # if its the second trap, kill all active players
-            for player in path_player_list:  # go through the  player list and give all the players in the cave
-                if player.in_cave:
-                    player.kill_player()
+            for player in active_players:  # go through the  player list and kill all the remaining active players
+                player.kill_player()
             return True  # return a true flag to show the expedition should fail
     else:
         return False
@@ -171,41 +179,36 @@ async def decision_phase(path_player_list, path_board, ei):
     player_decisions = await ei.request_decisions()
     for player_decision in player_decisions:
         path_player_list[player_decision["player_id"]].continuing = player_decision["decision"]
-
-    # number of players leaving
-    leaving_players = len([player for player in path_player_list if player.in_cave and not player.continuing])
+    # leaving players leaving and number of leaving players
+    leaving_players = [player for player in path_player_list if player.in_cave and not player.continuing]
+    no_leaving_players = len(leaving_players)
 
     # split the loot evenly between all leaving players, if one player is leaving, collect the relics
 
-    if leaving_players > 0:
+    if no_leaving_players > 0:
         for board_card in path_board.route:
             if board_card.card_type == "Treasure":       # split loot evenly between players on treasure cards
-                obtained_loot = int(board_card.value / leaving_players)
-                board_card.value = board_card.value % leaving_players
+                handle_treasure_loot(board_card, leaving_players)
 
-                for player in path_player_list:
-                    if player.in_cave and not player.continuing:
-                        player.pickup_loot(obtained_loot)
-
+            # <-- do we need to check that board_card.value != 0?
+            # Aren't relic always worth more than 0 even when the Card object is created?
             if board_card.card_type == "Relic":
-                if leaving_players == 1 and board_card.value != 0:
-                    for player in path_player_list:     # find the leaving player
-                        if player.in_cave and not player.continuing:
-                            # increase the worth of a relic if its the last 2 from 5 to 10
-                            if path_board.relics_picked >= 3:
-                                player.pickup_loot(board_card.value * 2)
-                            else:
-                                player.pickup_loot(board_card.value)
-                            path_board.relics_picked += 1
-                            board_card.value = 0
+                if no_leaving_players == 1 and board_card.value != 0:
+                    for player in leaving_players:
+                        # increase the worth of a relic if its the last 2 from 5 to 10
+                        if path_board.relics_picked >= 3:
+                            player.pickup_loot(board_card.value * 2)
+                        else:
+                            player.pickup_loot(board_card.value)
+                        path_board.relics_picked += 1
+                        board_card.value = 0
 
             if board_card.card_type == "Trap":       # dont care about traps
                 pass
 
     # once the board calculations are done, the players need to actually leave the cave
-    for player in path_player_list:
-        if player.in_cave and not player.continuing:
-            player.leave_cave()
+    for player in leaving_players:
+        player.leave_cave()
 
 
 async def single_turn(path_deck, path_player_list, path_board, ei):
