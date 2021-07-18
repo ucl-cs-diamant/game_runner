@@ -160,8 +160,8 @@ def advancement_phase(path_deck, path_player_list, path_board):
     if last_route.card_type == "Treasure":
         handle_treasure_loot(last_route, active_players)
 
-    if last_route.card_type == "Relic":  # nothing extra is done when a relic is pulled
-        pass  # <-----------------  did you mean continue? or can this `if` be removed altogether?
+    if last_route.card_type == "Relic":  # nothing is done when a relic is pulled
+        pass
 
     if last_route.card_type == "Trap":
         if path_board.double_trap:  # if its the second trap, kill all active players
@@ -177,8 +177,8 @@ async def decision_phase(path_player_list, path_board, ei):
     #     if player.in_cave:
     #         player.decide_action()
     player_decisions = await ei.request_decisions()
-    for player_decision in player_decisions:
-        path_player_list[player_decision["player_id"]].continuing = player_decision["decision"]
+    for player_id in player_decisions:
+        path_player_list[player_id].continuing = player_decisions[player_id]["decision"]
     # leaving players leaving and number of leaving players
     leaving_players = [player for player in path_player_list if player.in_cave and not player.continuing]
     no_leaving_players = len(leaving_players)

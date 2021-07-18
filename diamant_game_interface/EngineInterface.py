@@ -91,8 +91,15 @@ class EngineInterface:
         # if self.ready_callback is not None:
         #     self.ready_callback()
 
+    """
+    Player side of the interface will answer with a simple json: {"decision": <True/False>}
+    """
     async def request_decisions(self):
-        return await self.player_communication_channel.broadcast_decision_request()
+        await self.player_communication_channel.broadcast_decision_request()
+        decisions = await asyncio.gather(self.player_communication_channel.__receive_msg(player_id)
+                                         for player_id in self.players)
+        decisions = {player_id: decisions[i] for i, player_id in enumerate(self.players)}
+        return decisions
 
     def report_outcome(self, winning_players):
         url = f"http://{self.server_address}:{self.server_port}/report_outcome/"
@@ -112,12 +119,37 @@ class PlayerCommunication:
             if os.path.exists(self.sock_address):
                 raise
 
-    async def __broadcast_decision_request(self, player_id):
-        self.player_comm_channels[player_id][1].write("TODO: PUT SOMETHING RELEVANT HERE")
+    async def __receive_msg(self, player_id):
+        bytes_buffer = bytearray()
+        bytes_read = 0
+        while bytes_read < 4:
+            data = await self.player_comm_channels[player_id][0].recv(1024)
+            bytes_read += len(data)
+            bytes_buffer.extend(data)
+        message_length = int.from_bytes(bytes_buffer[:4], "big")
+
+        while bytes_read < message_length:
+            data = await self.player_comm_channels[player_id][0].recv(message_length - bytes_read)
+            bytes_read += len(data)
+            bytes_buffer.extend(data)
+
+        return json.loads(bytes_buffer[4:].decode('utf-8'))
+
+    async def __send_message(self, player_id, message: dict):
+        message = json.dumps(message)
+        encoded_message = bytearray(message.encode('utf-8'))
+        message_length = len(encoded_message)
+        encoded_message[0:0] = message_length.to_bytes(4, byteorder='big')
+        self.player_comm_channels[player_id][1].write(encoded_message)
         await self.player_comm_channels[player_id][1].drain()
 
+    async def __send_decision_request(self, player_id):
+        # self.player_comm_channels[player_id][1].write("PUT SOMETHING RELEVANT HERE")
+        # await self.player_comm_channels[player_id][1].drain()
+        await self.__send_message(player_id, {"game_state": {'yep': True}})
+
     async def broadcast_decision_request(self):
-        await asyncio.gather(self.__broadcast_decision_request(player_id)
+        await asyncio.gather(self.__send_decision_request(player_id)
                              for player_id in self.player_comm_channels.keys())
 
         # todo: put in the logic for reading their response
