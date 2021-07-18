@@ -135,6 +135,18 @@ def setup_game():
     return initial_deck, empty_board
 
 
+def handle_treasure_loot(board_card, players):
+    # board_card is either the new card, or the card on the route as the players are leaving 
+    # players are the players who decided to leave or the remaining active players
+    
+    no_players = len(players);
+    obtained_loot = board_card.value // no_players # do integer division of the loot
+    board_card.value = board_card.value % no_players # set new value to reflect taken loot
+
+    for player in players: # go through the provided player list and give them the divided loot
+        player.pickup_loot(obtained_loot)
+
+
 def advancement_phase(path_deck, path_player_list, path_board):
     path_board.add_card(path_deck.pick_card())
 
@@ -147,10 +159,7 @@ def advancement_phase(path_deck, path_player_list, path_board):
     last_route = path_board.route[-1]
 
     if last_route.card_type == "Treasure":
-        obtained_loot = last_route.value // no_active_players  # do integer division of the loot
-        last_route.value = last_route.value % no_active_players  # set new value to reflect taken loot
-        for player in active_players:  # go through the player list and give all the players in the cave their loot
-            player.pickup_loot(obtained_loot)
+        handle_treasure_loot(last_route, active_players)
 
     if last_route.card_type == "Relic":  # nothing extra is done when a relic is pulled
         pass  # <-----------------  did you mean continue? or can this `if` be removed altogether?
@@ -178,17 +187,13 @@ async def decision_phase(path_player_list, path_board, ei):
 
     # split the loot evenly between all leaving players, if one player is leaving, collect the relics
 
-    if no_leaving_players  > 0:
+    if no_leaving_players > 0:
         for board_card in path_board.route:
             if board_card.card_type == "Treasure":       # split loot evenly between players on treasure cards
-                obtained_loot = int(board_card.value / no_leaving_players )
-                board_card.value = board_card.value % no_leaving_players 
-
-                for player in leaving_players:
-                        player.pickup_loot(obtained_loot)
+                handle_treasure_loot(board_card, leaving_players)
 
             if board_card.card_type == "Relic":
-                if no_leaving_players == 1 and board_card.value != 0:
+                if no_leaving_players == 1 and board_card.value != 0: # <-- do we need to check that board_card.value != 0? Aren't relic always worth more than 0 even when the Card object is created?
                     for player in leaving_players:
                             # increase the worth of a relic if its the last 2 from 5 to 10
                             if path_board.relics_picked >= 3:
