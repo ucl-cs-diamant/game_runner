@@ -95,9 +95,10 @@ class Player:
     def _dispatch_action_request(self):  # todo: to implement
         pass
 
-    def decide_action(self):        # dummy roll 50/50 on leave/stay function
-
+    def decide_action(self, board):        # dummy roll 50/50 on leave/stay function
         decision = np.random.randint(0, 2)
+        if len(board.route) == 1:   # instantly skip if its the first turn
+            return
         if decision:        # if 0 is rolled leave
             self.continuing = True
             return
@@ -181,7 +182,7 @@ def advancement_phase(path_deck, path_player_list, path_board):
 def decision_phase(path_player_list, path_board):
     for player in path_player_list:
         if player.in_cave:
-            player.decide_action()
+            player.decide_action(path_board)
     # player_decisions = await ei.request_decisions()
     # for player_decision in player_decisions:
     #     path_player_list[player_decision["player_id"]].continuing = player_decision["decision"]
@@ -238,14 +239,20 @@ def run_game():     # run a full game of diamant
             excluded_cards.append(Card("Relic", 5))
         deck = Deck(excluded_cards)
 
-    winner_list = []
-    for player in player_list:
-        if len(winner_list) == 0 or player.chest == winner_list[0].chest:  # if there is a draw, players share the win
-            winner_list.append(player)
-        elif player.chest > winner_list[0].chest:
-            winner_list = [player]
+    # winner_list = []
+    # for player in player_list:
+    #     if len(winner_list) == 0 or player.chest == winner_list[0].chest:  # if there is a draw, players share the win
+    #         winner_list.append(player)
+    #     elif player.chest > winner_list[0].chest:
+    #         winner_list = [player]
 
-    return [player.player_id for player in winner_list]
+    # return [player.player_id for player in winner_list]
+
+    chest_count = []
+    for player in player_list:
+        chest_count.append(player.chest)
+
+    return chest_count
 
 
 # def debug_run(deck, player_list, board):        # debug command to do a failed run
@@ -269,8 +276,23 @@ def run_game():     # run a full game of diamant
 
 
 async def main():
-    print(str(run_game()) + " winner winner chicken dinner!")
+    # winner_tally = [0, 0, 0, 0, 0, 0]
+    # for i in range(1000):
+    #     winners = run_game()
+    #     for playerID in winners:
+    #         winner_tally[playerID] += 1
+    #
+    # print(winner_tally)
 
+    winner_avg = []
+
+    for i in range(1000):
+        chest_amount = run_game()
+        winner_avg.append(sum(chest_amount) / len(chest_amount))
+
+    average = sum(winner_avg) / len(winner_avg)
+
+    print(average)  # REALLY dumb average for player gem counts
 
 if __name__ == '__main__':
     asyncio.run(main())
