@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import asyncio
 from diamant_game_interface import EngineInterface
@@ -269,7 +271,7 @@ async def run_game(engine_interface):     # run a full game of diamant
 
 
 async def main():
-    engine_interface = EngineInterface('localhost')  # todo: replace with environment variables
+    engine_interface = EngineInterface(os.environ.get("GAMESERVER_HOST", "GAMESERVER_HOST_MISSING"))
     await engine_interface.init_game()
     print(str(await run_game(engine_interface)) + " winner winner chicken dinner!")
 
