@@ -60,7 +60,6 @@ class DeckTestCase(unittest.TestCase):
         self.assertEqual(second_card, deck.cards[0])
 
 
-
 class PlayerTestCase(unittest.TestCase):
     def test_player_creation_clean(self):
         player = game_engine.Player("123")
@@ -97,7 +96,7 @@ class PlayerTestCase(unittest.TestCase):
         player = game_engine.Player("123")
 
         player.pickup_loot(10)
-        
+
         player.kill_player()
 
         self.assertEqual(player.pocket, 0)
@@ -145,8 +144,6 @@ class BoardTestCase(unittest.TestCase):
         self.assertEqual(board.route, [])
         self.assertEqual(board.double_trap, False)
         self.assertEqual(board.triggered_doubles[0].value, "Snake")
-
-
 
 
 if __name__ == '__main__':
