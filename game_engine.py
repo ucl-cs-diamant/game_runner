@@ -179,8 +179,11 @@ async def decision_phase(path_player_list, path_board, ei):
     #     if player.in_cave:
     #         player.decide_action()
     player_decisions = await ei.request_decisions()
-    for player_id in player_decisions:
-        path_player_list[player_id].continuing = player_decisions[player_id]["decision"]
+    # for player_id in player_decisions:
+    #     path_player_list[player_id].continuing = player_decisions[player_id]["decision"]
+    for player in path_player_list:
+        player.continuing = player_decisions[player.player_id]["decision"]
+
     # leaving players leaving and number of leaving players
     leaving_players = [player for player in path_player_list if player.in_cave and not player.continuing]
     no_leaving_players = len(leaving_players)
