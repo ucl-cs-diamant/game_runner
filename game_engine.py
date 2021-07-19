@@ -179,19 +179,17 @@ def advancement_phase(path_deck, path_player_list, path_board):
         return False
 
 
-def decision_phase(path_player_list, path_board):
+def make_decisions(path_player_list, path_board):   # actually make the players make a decision
     for player in path_player_list:
         if player.in_cave:
             player.decide_action(path_board)
     # player_decisions = await ei.request_decisions()
     # for player_decision in player_decisions:
     #     path_player_list[player_decision["player_id"]].continuing = player_decision["decision"]
-    # leaving players leaving and number of leaving players
-    leaving_players = [player for player in path_player_list if player.in_cave and not player.continuing]
-    no_leaving_players = len(leaving_players)
 
-    # split the loot evenly between all leaving players, if one player is leaving, collect the relics
 
+def handle_leaving_players(no_leaving_players, leaving_players, path_board):
+    # function that handles card values and loot distribution upon leaving
     if no_leaving_players > 0:
         for board_card in path_board.route:
             if board_card.card_type == "Treasure":       # split loot evenly between players on treasure cards
@@ -206,6 +204,16 @@ def decision_phase(path_player_list, path_board):
 
             if board_card.card_type == "Trap":       # dont care about traps
                 pass
+
+
+def decision_phase(path_player_list, path_board):
+    make_decisions(path_player_list, path_board)
+    # leaving players leaving and number of leaving players
+    leaving_players = [player for player in path_player_list if player.in_cave and not player.continuing]
+    no_leaving_players = len(leaving_players)
+
+    # split the loot evenly between all leaving players, if one player is leaving, collect the relics
+    handle_leaving_players(no_leaving_players, leaving_players, path_board)
 
     # once the board calculations are done, the players need to actually leave the cave
     for player in leaving_players:

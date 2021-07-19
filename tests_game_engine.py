@@ -94,12 +94,14 @@ class PlayerTestCase(unittest.TestCase):
 
     def test_player_kill(self):
         player = game_engine.Player("123")
+        player.chest = 5
 
         player.pickup_loot(10)
 
         player.kill_player()
 
         self.assertEqual(player.pocket, 0)
+        self.assertEqual(player.chest, 5)
         self.assertFalse(player.in_cave)
         self.assertFalse(player.continuing)
 
@@ -161,6 +163,63 @@ class BoardTestCase(unittest.TestCase):
         self.assertFalse(board.double_trap)
         self.assertEqual(board.relics_picked, 1)
         self.assertEqual(board.excluded_cards[0].value, 5)
+
+
+class AdvancementPhaseTestCase(unittest.TestCase):
+    def setUp(self):
+        self.deck = game_engine.Deck()
+        self.players = []
+        for i in range(6):
+            self.players.append(game_engine.Player(i))
+        self.board = game_engine.Board()
+        self.first_card = self.deck.cards[0]
+
+    def test_handle_treasure_loot(self):
+        card = game_engine.Card("Treasure", 7)
+
+        game_engine.handle_treasure_loot(card, self.players)
+
+        self.assertEqual(card.value, 1)
+
+        for player in self.players:
+            self.assertEqual(player.pocket, 1)
+
+    def test_advance_no_actives(self):
+        for player in self.players:
+            player.in_cave = False
+
+        outcome = game_engine.advancement_phase(self.deck, self.players, self.board)
+
+        self.assertTrue(outcome)
+        self.assertEqual(self.first_card, self.board.route[0])
+
+    def test_advance_trap_trigger(self):
+        self.deck.cards[0] = game_engine.Card("Trap", "Snake")
+        self.board.route.append(game_engine.Card("Trap", "Snake"))
+
+        outcome = game_engine.advancement_phase(self.deck, self.players, self.board)
+
+        self.assertTrue(outcome)
+        for player in self.players:
+            self.assertFalse(player.in_cave)
+
+    def test_advance_treasure(self):
+        self.deck.cards[0] = game_engine.Card("Treasure", 7)
+
+        outcome = game_engine.advancement_phase(self.deck, self.players, self.board)
+
+        self.assertFalse(outcome)
+
+        for player in self.players:
+            self.assertEqual(player.pocket, 1)
+
+
+class DecisionPhaseTestCase(unittest.TestCase):
+    def setup(self):
+        self.board = game_engine.Board()
+        self.players = []
+        for i in range(6):
+            self.players.append(game_engine.Player(i))
 
 
 if __name__ == '__main__':
