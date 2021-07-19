@@ -278,7 +278,9 @@ async def main():
                                        int(os.environ.get("GAMESERVER_PORT", 80)))
 
     await engine_interface.init_game()
-    print(str(await run_game(engine_interface)) + " winner winner chicken dinner!")
+    winners = await run_game(engine_interface)
+    print(str(winners) + " winner winner chicken dinner!")
+    engine_interface.report_outcome(winners)
 
 
 if __name__ == '__main__':
