@@ -273,6 +273,7 @@ async def run_game(engine_interface):     # run a full game of diamant
 async def main():
     engine_interface = EngineInterface(os.environ.get("GAMESERVER_HOST", "GAMESERVER_HOST_MISSING"),
                                        int(os.environ.get("GAMESERVER_PORT", 80)))
+
     await engine_interface.init_game()
     print(str(await run_game(engine_interface)) + " winner winner chicken dinner!")
 
