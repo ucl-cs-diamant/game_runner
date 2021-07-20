@@ -315,6 +315,36 @@ class RunPathTestCase(unittest.TestCase):
             self.players.append(game_engine.Player(i))
         self.board = game_engine.Board()
 
+    def test_run_path_reset_failure(self):
+        self.deck.cards[0] = game_engine.Card("Trap", "Snake")
+        self.deck.cards[1] = game_engine.Card("Trap", "Snake")
+
+        game_engine.run_path(self.deck, self.players, self.board)
+
+        self.assertEqual(self.board.route, [])
+        self.assertFalse(self.board.double_trap)
+
+        for player in self.players:
+            self.assertEqual(player.pocket, 0)
+            self.assertTrue(player.in_cave)
+            self.assertTrue(player.continuing)
+
+
+class SetupGameTestCase(unittest.TestCase):     # todo: expand upon later
+    def test_return_types(self):
+        deck, board = game_engine.setup_game()
+
+        self.assertEqual(type(deck), game_engine.Deck)
+        self.assertEqual(type(board), game_engine.Board)
+
+
+class RunGameTestCase(unittest.TestCase):
+    def test_run_game_return_type(self):
+        winner_list = game_engine.run_game()
+
+        for winner in winner_list:
+            self.assertEqual(type(winner), int)
+
 
 if __name__ == '__main__':
     unittest.main()

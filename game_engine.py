@@ -254,20 +254,14 @@ def run_game():     # run a full game of diamant
             excluded_cards.append(Card("Relic", 5))
         deck = Deck(excluded_cards)
 
-    # winner_list = []
-    # for player in player_list:
-    #     if len(winner_list) == 0 or player.chest == winner_list[0].chest:  # if there is a draw, players share the win
-    #         winner_list.append(player)
-    #     elif player.chest > winner_list[0].chest:
-    #         winner_list = [player]
-
-    # return [player.player_id for player in winner_list]
-
-    chest_count = []
+    winner_list = []
     for player in player_list:
-        chest_count.append(player.chest)
+        if len(winner_list) == 0 or player.chest == winner_list[0].chest:  # if there is a draw, players share the win
+            winner_list.append(player)
+        elif player.chest > winner_list[0].chest:
+            winner_list = [player]
 
-    return chest_count
+    return [player.player_id for player in winner_list]
 
 
 # def debug_run(deck, player_list, board):        # debug command to do a failed run
@@ -291,23 +285,24 @@ def run_game():     # run a full game of diamant
 
 
 async def main():
-    # winner_tally = [0, 0, 0, 0, 0, 0]
-    # for i in range(1000):
-    #     winners = run_game()
-    #     for playerID in winners:
-    #         winner_tally[playerID] += 1
-    #
-    # print(winner_tally)
-
-    winner_avg = []
-
+    winner_tally = [0, 0, 0, 0, 0, 0]
     for i in range(1000):
-        chest_amount = run_game()
-        winner_avg.append(sum(chest_amount) / len(chest_amount))
+        winners = run_game()
+        for playerID in winners:
+            winner_tally[playerID] += 1
 
-    average = sum(winner_avg) / len(winner_avg)
+    print(winner_tally)
 
-    print(average)  # REALLY dumb average for player gem counts
+    #
+    # winner_avg = []
+    #
+    # for i in range(1000):
+    #     chest_amount = run_game()
+    #     winner_avg.append(sum(chest_amount) / len(chest_amount))
+    #
+    # average = sum(winner_avg) / len(winner_avg)
+    #
+    # print(average)  # REALLY dumb average for player gem counts
 
 if __name__ == '__main__':
     asyncio.run(main())
