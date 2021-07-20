@@ -73,7 +73,7 @@ class Deck:
 
 
 class Player:
-    def __init__(self, player_id):
+    def __init__(self, player_id: int):
         self.player_id = player_id
         self.chest = 0
         self.pocket = 0     # how much a player has on hand mid exploration
