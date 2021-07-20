@@ -214,12 +214,106 @@ class AdvancementPhaseTestCase(unittest.TestCase):
             self.assertEqual(player.pocket, 1)
 
 
-class DecisionPhaseTestCase(unittest.TestCase):
-    def setup(self):
+class HandleLeavingPlayersTestCase(unittest.TestCase):
+    def setUp(self):
         self.board = game_engine.Board()
         self.players = []
         for i in range(6):
             self.players.append(game_engine.Player(i))
+
+    def test_handle_leaving_players_zero(self):
+        self.board.add_card(game_engine.Card("Treasure", 6))
+
+        game_engine.handle_leaving_players(0, [], self.board)
+
+        self.assertEqual(self.board.route[0].value, 6)
+
+    def test_handle_leaving_players_treasure(self):
+        self.board.add_card(game_engine.Card("Treasure", 6))
+
+        game_engine.handle_leaving_players(6, self.players, self.board)
+
+        self.assertEqual(self.board.route[0].value, 0)
+
+        for player in self.players:
+            self.assertEqual(player.pocket, 1)
+
+    def test_handle_leaving_players_relic(self):
+        self.board.add_card(game_engine.Card("Relic", 5))
+
+        game_engine.handle_leaving_players(2, self.players[:2], self.board)
+
+        self.assertEqual(self.board.route[0].value, 5)
+        self.assertEqual(self.players[0].pocket, 0)
+        self.assertEqual(self.players[1].pocket, 0)
+
+        game_engine.handle_leaving_players(1, [self.players[0]], self.board)
+
+        self.assertEqual(self.board.route[0].value, 0)
+        self.assertEqual(self.players[0].pocket, 5)
+
+
+class DecisionPhaseTestCase(unittest.TestCase):
+    def setUp(self):
+        self.board = game_engine.Board()
+        self.players = []
+        for i in range(6):
+            self.players.append(game_engine.Player(i))
+
+    def test_correct_players_leaving(self):
+        self.players[0].in_cave = False
+        original_value = 5
+        self.board.add_card(game_engine.Card("Treasure", original_value))
+
+        game_engine.decision_phase(self.players, self.board)
+
+        self.assertEqual(self.players[0].chest, 0)
+
+        leaving_players = [player for player in self.players[1:] if player.continuing is False]
+        self.assertEqual(self.board.route[0].value, original_value % len(leaving_players))
+
+        for left_player in leaving_players:
+            self.assertFalse(left_player.in_cave)
+            self.assertEqual(left_player.chest, original_value // len(leaving_players))
+
+
+class SingleTurnTestCase(unittest.TestCase):
+    def setUp(self):
+        self.deck = game_engine.Deck()
+        self.players = []
+        for i in range(6):
+            self.players.append(game_engine.Player(i))
+        self.board = game_engine.Board()
+
+    def test_failure_state_traps(self):
+        self.deck.cards[0] = game_engine.Card("Trap", "Snake")
+        self.board.route.append(game_engine.Card("Trap", "Snake"))
+
+        outcome = game_engine.single_turn(self.deck, self.players, self.board)
+
+        self.assertTrue(outcome)
+
+    def test_failure_state_players(self):
+        for player in self.players:
+            player.in_cave = False
+
+        outcome = game_engine.single_turn(self.deck, self.players, self.board)
+
+        self.assertTrue(outcome)
+
+    def test_passing_state(self):
+        outcome = game_engine.single_turn(self.deck, self.players, self.board)
+
+        self.assertFalse(outcome)
+
+
+class RunPathTestCase(unittest.TestCase):
+    def setUp(self):
+        self.deck = game_engine.Deck()
+        self.players = []
+        for i in range(6):
+            self.players.append(game_engine.Player(i))
+        self.board = game_engine.Board()
 
 
 if __name__ == '__main__':

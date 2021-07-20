@@ -84,7 +84,7 @@ class Player:
         self.chest += self.pocket
         self.pocket = 0
 
-    def kill_player(self):      # player dies in the cave, loot is lost, and values reset to normal
+    def kill_player(self):      # player dies in the cave, loot is lost and they are removed from play entirely
         self.pocket = 0
         self.in_cave = False
         self.continuing = False
@@ -97,12 +97,17 @@ class Player:
 
     def decide_action(self, board):        # dummy roll 50/50 on leave/stay function
         decision = np.random.randint(0, 2)
-        if len(board.route) == 1:   # instantly skip if its the first turn
-            return
+        # if len(board.route) == 1:   # instantly skip if its the first turn
+        #     return
         if decision:        # if 0 is rolled leave
             self.continuing = True
             return
         self.continuing = False
+
+    def reset_player(self):     # reset a player for the next path
+        self.pocket = 0
+        self.in_cave = True
+        self.continuing = True
 
 
 class Board:
@@ -235,6 +240,8 @@ def run_path(deck, player_list, board):     # runs through a path until all play
     while not path_complete:
         path_complete = single_turn(deck, player_list, board)
     board.reset_path()      # reset board for a new path
+    for player in player_list:      # reset all players so they are able to participate in the next path
+        player.reset_player()
 
 
 def run_game():     # run a full game of diamant
