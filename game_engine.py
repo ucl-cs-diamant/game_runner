@@ -105,6 +105,11 @@ class Player:
     #         return
     #     self.continuing = False
 
+    def reset_player(self):     # reset a player for the next path
+        self.pocket = 0
+        self.in_cave = True
+        self.continuing = True
+
 
 class Board:
     def __init__(self):
@@ -180,7 +185,7 @@ def advancement_phase(path_deck, path_player_list, path_board):
         return False
 
 
-async def decision_phase(path_player_list, path_board, ei):
+async def make_decisions(path_player_list, ei):   # actually make the players make a decision
     # for player in path_player_list:
     #     if player.in_cave:
     #         player.decide_action()
@@ -190,12 +195,9 @@ async def decision_phase(path_player_list, path_board, ei):
     for player in path_player_list:
         player.continuing = player_decisions[player.player_id]["decision"]
 
-    # leaving players leaving and number of leaving players
-    leaving_players = [player for player in path_player_list if player.in_cave and not player.continuing]
-    no_leaving_players = len(leaving_players)
 
-    # split the loot evenly between all leaving players, if one player is leaving, collect the relics
-
+def handle_leaving_players(no_leaving_players, leaving_players, path_board):
+    # function that handles card values and loot distribution upon leaving
     if no_leaving_players > 0:
         for board_card in path_board.route:
             if board_card.card_type == "Treasure":       # split loot evenly between players on treasure cards
@@ -210,6 +212,17 @@ async def decision_phase(path_player_list, path_board, ei):
 
             if board_card.card_type == "Trap":       # dont care about traps
                 pass
+
+
+async def decision_phase(path_player_list, path_board, ei):
+    await make_decisions(path_player_list, ei)
+
+    # leaving players leaving and number of leaving players
+    leaving_players = [player for player in path_player_list if player.in_cave and not player.continuing]
+    no_leaving_players = len(leaving_players)
+
+    # split the loot evenly between all leaving players, if one player is leaving, collect the relics
+    handle_leaving_players(no_leaving_players, leaving_players, path_board)
 
     # once the board calculations are done, the players need to actually leave the cave
     for player in leaving_players:
@@ -231,6 +244,8 @@ async def run_path(deck, player_list, board, ei):     # runs through a path unti
     while not path_complete:
         path_complete = await single_turn(deck, player_list, board, ei)
     board.reset_path()      # reset board for a new path
+    for player in player_list:      # reset all players so they are able to participate in the next path
+        player.reset_player()
 
 
 async def run_game(engine_interface):     # run a full game of diamant
