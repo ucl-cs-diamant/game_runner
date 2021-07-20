@@ -105,26 +105,38 @@ class Player:
     #         return
     #     self.continuing = False
 
+    def reset_player(self):     # reset a player for the next path
+        self.pocket = 0
+        self.in_cave = True
+        self.continuing = True
+
 
 class Board:
     def __init__(self):
         self.route = []
         self.double_trap = False
-        self.triggered_doubles = []
-        self.relics_picked = 0  # note: relics are only counted when actually collected by an explorer on the way out
+        self.excluded_cards = []
+        self.relics_picked = 0  # note: relics are counted when placed in the route
 
     def __str__(self):
         return str(self.route)
 
     # pick a card, if its another trap card, set double_trap to the trap card and kill the players at some point
     def add_card(self, card):
-        if card.card_type == "Trap":
+        if card.card_type == "Trap":    # Traps need to checked before being added for logic reasons
             for board_card in self.route:
                 if card.value == board_card.value:
                     self.double_trap = True
-                    self.triggered_doubles.append(card)
+                    self.excluded_cards.append(card)
                     break
+
         self.route.append(card)
+
+        if card.card_type == "Relic":   # Relics can be changed after adding neatly
+            self.relics_picked += 1
+            self.excluded_cards.append(card)
+            if self.relics_picked > 3:  # 4th and 5th relic have 10 value
+                self.route[-1].value = 10
 
     def reset_path(self):  # intentionally left out triggered doubles so it carries between paths
         self.route = []
@@ -156,13 +168,12 @@ def advancement_phase(path_deck, path_player_list, path_board):
     if no_active_players == 0:
         return True  # return immediately to move to the next expedition
 
-    # Not actually sure if python is able to do inline extraction of these list accesses
     last_route = path_board.route[-1]
 
     if last_route.card_type == "Treasure":
         handle_treasure_loot(last_route, active_players)
 
-    if last_route.card_type == "Relic":  # nothing is done when a relic is pulled
+    if last_route.card_type == "Relic":  # this IF is here for sheer readability and does nothing
         pass
 
     if last_route.card_type == "Trap":
@@ -174,7 +185,7 @@ def advancement_phase(path_deck, path_player_list, path_board):
         return False
 
 
-async def decision_phase(path_player_list, path_board, ei):
+async def make_decisions(path_player_list, ei):   # actually make the players make a decision
     # for player in path_player_list:
     #     if player.in_cave:
     #         player.decide_action()
@@ -184,32 +195,34 @@ async def decision_phase(path_player_list, path_board, ei):
     for player in path_player_list:
         player.continuing = player_decisions[player.player_id]["decision"]
 
-    # leaving players leaving and number of leaving players
-    leaving_players = [player for player in path_player_list if player.in_cave and not player.continuing]
-    no_leaving_players = len(leaving_players)
 
-    # split the loot evenly between all leaving players, if one player is leaving, collect the relics
-
+def handle_leaving_players(no_leaving_players, leaving_players, path_board):
+    # function that handles card values and loot distribution upon leaving
     if no_leaving_players > 0:
         for board_card in path_board.route:
             if board_card.card_type == "Treasure":       # split loot evenly between players on treasure cards
                 handle_treasure_loot(board_card, leaving_players)
 
-            # <-- do we need to check that board_card.value != 0?
-            # Aren't relic always worth more than 0 even when the Card object is created?
-            if board_card.card_type == "Relic":
-                if no_leaving_players == 1 and board_card.value != 0:
+            # check if there is a relic to pick up (arguably pointless but it saves running the extra code 9/10 times)
+            if board_card.card_type == "Relic" and board_card.value != 0:
+                if no_leaving_players == 1:
                     for player in leaving_players:
-                        # increase the worth of a relic if its the last 2 from 5 to 10
-                        if path_board.relics_picked >= 3:
-                            player.pickup_loot(board_card.value * 2)
-                        else:
-                            player.pickup_loot(board_card.value)
-                        path_board.relics_picked += 1
+                        player.pickup_loot(board_card.value)
                         board_card.value = 0
 
             if board_card.card_type == "Trap":       # dont care about traps
                 pass
+
+
+async def decision_phase(path_player_list, path_board, ei):
+    await make_decisions(path_player_list, ei)
+
+    # leaving players leaving and number of leaving players
+    leaving_players = [player for player in path_player_list if player.in_cave and not player.continuing]
+    no_leaving_players = len(leaving_players)
+
+    # split the loot evenly between all leaving players, if one player is leaving, collect the relics
+    handle_leaving_players(no_leaving_players, leaving_players, path_board)
 
     # once the board calculations are done, the players need to actually leave the cave
     for player in leaving_players:
@@ -231,6 +244,8 @@ async def run_path(deck, player_list, board, ei):     # runs through a path unti
     while not path_complete:
         path_complete = await single_turn(deck, player_list, board, ei)
     board.reset_path()      # reset board for a new path
+    for player in player_list:      # reset all players so they are able to participate in the next path
+        player.reset_player()
 
 
 async def run_game(engine_interface):     # run a full game of diamant
@@ -238,7 +253,7 @@ async def run_game(engine_interface):     # run a full game of diamant
     player_list = [Player(player_id) for player_id in engine_interface.players]
     for path_num in range(5):      # do 5 paths
         await run_path(deck, player_list, board, engine_interface)
-        excluded_cards = board.triggered_doubles
+        excluded_cards = board.excluded_cards
         for relic_count in range(board.relics_picked):        # add an exclusion for every picked relic
             excluded_cards.append(Card("Relic", 5))
         deck = Deck(excluded_cards)
