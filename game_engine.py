@@ -145,14 +145,6 @@ class Player:
     def _dispatch_action_request(self):  # todo: to implement
         pass
 
-    # def decide_action(self, ei):        # dummy roll 50/50 on leave/stay function
-    #
-    #     decision = np.random.randint(0, 2)
-    #     if decision:        # if 0 is rolled leave
-    #         self.continuing = True
-    #         return
-    #     self.continuing = False
-
     def reset_player(self):     # reset a player for the next path
         self.pocket = 0
         self.in_cave = True
@@ -333,58 +325,11 @@ async def run_game(engine_interface):     # run a full game of diamant
     return [player.player_id for player in winner_list], match_history
 
 
-# def debug_run(deck, player_list, board):        # debug command to do a failed run
-#     deck.cards[0] = Card("Relic", 5)
-#     deck.cards[1] = Card("Trap", "Snake")
-#     deck.cards[2] = Card("Treasure", 15)
-#     deck.cards[3] = Card("Relic", 5)
-#     deck.cards[4] = Card("Relic", 5)
-#     deck.cards[5] = Card("Relic", 5)
-#     deck.cards[6] = Card("Trap", "Snake")
-#     single_turn(deck, player_list, board)
-#     single_turn(deck, player_list, board)
-#     single_turn(deck, player_list, board)
-#     single_turn(deck, player_list, board)
-#     single_turn(deck, player_list, board)
-#     single_turn(deck, player_list, board)
-#     player_list[4].in_cave = True
-#     player_list[4].pocket = 100
-#     success = single_turn(deck, player_list, board)
-#     print(success)
-
-
-# class TestEngineInterface:
-#     def __init__(self):
-#         self.players = range(6)
-#
-#     def check_dead_players(self):
-#         pass
-#
-#     async def init_game(self):
-#         pass
-#
-#     def roll_decision(self):
-#         decision = np.random.randint(0, 2)
-#         return decision
-#
-#     async def request_decisions(self):
-#         decisions = []
-#         for i in range(6):
-#             decisions.append({"decision": self.roll_decision()})
-#         decisions = {player_id: decisions[i] for i, player_id in enumerate(range(6))}
-#         return decisions
-#
-#     def report_outcome(self, winning_players: list):
-#         pass
-
-
 async def main():
     engine_interface = EngineInterface(os.environ.get("GAMESERVER_HOST", "GAMESERVER_HOST_MISSING"),
                                        int(os.environ.get("GAMESERVER_PORT", 80)))
 
     await engine_interface.init_game()
-
-    # engine_interface = TestEngineInterface()
     winners, match_history = await run_game(engine_interface)
     print(str(winners) + " winner winner chicken dinner!")
     engine_interface.report_outcome(winners)
