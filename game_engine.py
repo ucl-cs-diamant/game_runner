@@ -45,23 +45,23 @@ def generate_deck(exclusions: Union[list, None]) -> list:
 
 
 # match history = [match_event]
-# match_event = {event_type:item, content:[]}
+# match_event = {event_type:item, content:{}}}
 class MatchEvent:
-    def __init__(self, event_type, content: list):
+    def __init__(self, event_type, content: dict):
         self.match_event = {"event_type": event_type, "content": content}
 
     def __str__(self):
         return str(self.match_event)
 
-    # player_pickup: [self.player_id, self.pocket, amount]
-    # player_death: [self.player_id, self.pocket]
-    # player_leaves: [self.player_id, self.pocket, self.chest]
-    # board_add_card: [card.card_type, card.value]
-    # board_change_card: [card_index, board_card.card_type, board_card.value]
-    # board_trap_trigger: [card.card_type, card.value]
-    # new_path: [path_num]
-    # game_start: []
-    # winners_determined: [player.player_id for player in winner_list]
+    # player_pickup: {self.player_id, self.pocket, amount}
+    # player_death: {self.player_id, self.pocket}
+    # player_leaves: {self.player_id, self.pocket, self.chest}
+    # board_add_card: {card.card_type, card.value}
+    # board_change_card: {card_index, board_card.card_type, board_card.value}
+    # board_trap_trigger: {card.card_type, card.value}
+    # new_path: {path_num}
+    # game_start: {}
+    # winners_determined: {player.player_id for player in winner_list}
 
 
 class MatchHistory:
@@ -115,7 +115,7 @@ class Player:
         self.continuing = True     # the players decision to continue
 
     def leave_cave(self, match_history: MatchHistory):       # player leaves cave safely and stores their loot
-        match_history.add_event(MatchEvent("player_leaves", [self.player_id, self.pocket, self.chest]))
+        match_history.add_event(MatchEvent("player_leaves", {"player_id": self.player_id, "pocket": self.pocket, "chest": self.chest}))
         self.in_cave = False
         self.continuing = False
         self.chest += self.pocket
@@ -123,14 +123,15 @@ class Player:
 
     def kill_player(self, match_history: MatchHistory):
         # player dies in the cave, loot is lost, and values reset to normal
-        match_history.add_event(MatchEvent("player_death", [self.player_id, self.pocket]))
+        match_history.add_event(MatchEvent("player_death", {"player_id": self.player_id, "pocket": self.pocket}))
         self.pocket = 0
         self.in_cave = False
         self.continuing = False
 
     def pickup_loot(self, amount, match_history: MatchHistory):      # player picks up some loot
+        match_history.add_event(MatchEvent("player_pickup", {"player_id": self.player_id, "pocket": self.pocket,
+                                                             "amount": amount}))
         self.pocket += amount
-        match_history.add_event(MatchEvent("player_pickup", [self.player_id, self.pocket, amount]))
 
     def _dispatch_action_request(self):  # todo: to implement
         pass
@@ -165,7 +166,8 @@ class Board:
             for board_card in self.route:
                 if card.value == board_card.value:
                     self.double_trap = True
-                    match_history.add_event(MatchEvent("board_trap_trigger", [card.card_type, card.value]))
+                    match_history.add_event(MatchEvent("board_trap_trigger", {"card_type": card.card_type,
+                                                                              "value": card.value}))
                     self.excluded_cards.append(card)
                     break
 
@@ -177,7 +179,7 @@ class Board:
             if self.relics_picked > 3:  # 4th and 5th relic have 10 value
                 self.route[-1].value = 10
 
-        match_history.add_event(MatchEvent("board_add_card", [card.card_type, card.value]))
+        match_history.add_event(MatchEvent("board_add_card", {"card_type": card.card_type, "value": card.value}))
 
     def reset_path(self):  # intentionally left out triggered doubles so it carries between paths
         self.route = []
@@ -196,7 +198,9 @@ def handle_treasure_loot(board_card, card_index, players, match_history: MatchHi
     no_players = len(players)
     obtained_loot = board_card.value // no_players  # do integer division of the loot
     board_card.value = board_card.value % no_players  # set new value to reflect taken loot
-    match_history.add_event(MatchEvent("board_change_card", [card_index, board_card.card_type, board_card.value]))
+    match_history.add_event(MatchEvent("board_change_card", {"card_index": card_index,
+                                                             "card_type": board_card.card_type,
+                                                             "value": board_card.value}))
 
     for player in players:  # go through the provided player list and give them the divided loot
         player.pickup_loot(obtained_loot, match_history)
@@ -252,8 +256,10 @@ def handle_leaving_players(no_leaving_players, leaving_players, path_board, matc
                         player.pickup_loot(board_card.value, match_history)
                         board_card.value = 0
                         match_history.add_event(
-                            MatchEvent("board_change_card", [
-                                path_board.route.index(board_card), board_card.card_type, board_card.value]))
+                            MatchEvent("board_change_card", {
+                                "card_index": path_board.route.index(board_card),
+                                "card_type": board_card.card_type,
+                                "value": board_card.value}))
 
             if board_card.card_type == "Trap":       # dont care about traps
                 pass
@@ -299,10 +305,10 @@ async def run_game(engine_interface):     # run a full game of diamant
     player_list = [Player(player_id) for player_id in engine_interface.players]
 
     match_history = MatchHistory()
-    match_history.add_event(MatchEvent("game_start", []))
+    match_history.add_event(MatchEvent("game_start", {}))
 
     for path_num in range(5):      # do 5 paths
-        match_history.add_event(MatchEvent("new_path", [path_num]))
+        match_history.add_event(MatchEvent("new_path", {"path_num": path_num}))
         await run_path(deck, player_list, board, engine_interface, match_history)
         excluded_cards = board.excluded_cards
         for relic_count in range(board.relics_picked):        # add an exclusion for every picked relic
@@ -315,7 +321,8 @@ async def run_game(engine_interface):     # run a full game of diamant
             winner_list.append(player)
         elif player.chest > winner_list[0].chest:
             winner_list = [player]
-    match_history.add_event(MatchEvent("winners_determined", [player.player_id for player in winner_list]))
+    match_history.add_event(MatchEvent("winners_determined",
+                                       {"winner_list": [player.player_id for player in winner_list]}))
 
     return [player.player_id for player in winner_list], match_history
 
