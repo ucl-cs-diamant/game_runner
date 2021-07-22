@@ -45,7 +45,7 @@ def generate_deck(exclusions: Union[list, None]) -> list:
 
 
 # match history = [match_event]
-# match_event = {event_type:item, content:{}}}
+# match_event = {event_type:item, content:{}}
 class MatchEvent:
     def __init__(self, event_type, content: dict):
         self.match_event = {"event_type": event_type, "content": content}
@@ -53,15 +53,18 @@ class MatchEvent:
     def __str__(self):
         return str(self.match_event)
 
-    # player_pickup: {self.player_id, self.pocket, amount}
-    # player_death: {self.player_id, self.pocket}
-    # player_leaves: {self.player_id, self.pocket, self.chest}
-    # board_add_card: {card.card_type, card.value}
-    # board_change_card: {card_index, board_card.card_type, board_card.value}
-    # board_trap_trigger: {card.card_type, card.value}
-    # new_path: {path_num}
-    # game_start: {}
-    # winners_determined: {player.player_id for player in winner_list}
+    # player_pickup.keys() = [player_id, pocket, amount]
+    # player_death.keys() = [player_id, pocket]
+    # player_leaves.keys() = [player_id, pocket, chest]
+    # NOTE: all player values are snapshots of before the event happens
+
+    # board_add_card.keys() = [card_type, value]
+
+    # board_change_card.keys() = [card_index, card_type, value]
+    # NOTE: card_index = index of board.route where card is located
+
+    # board_trap_trigger.keys() = [card_type, value]
+    # new_path.keys() = [path_num]
 
 
 class MatchHistory:
@@ -69,9 +72,14 @@ class MatchHistory:
         self.match_timeline = []
 
     def __str__(self):
-        match_string = ""
-        for item in self.match_timeline:
-            match_string += str(item)
+        match_string = "["
+        if len(match_string) > 0:
+            match_string += str(self.match_timeline[0])
+            if len(self.match_timeline) > 1:
+                for item in range(1, len(self.match_timeline)):
+                    match_string += ", "
+                    match_string += str(item)
+        match_string += "]"
         return match_string
 
     def add_event(self, event: MatchEvent):
@@ -115,7 +123,8 @@ class Player:
         self.continuing = True     # the players decision to continue
 
     def leave_cave(self, match_history: MatchHistory):       # player leaves cave safely and stores their loot
-        match_history.add_event(MatchEvent("player_leaves", {"player_id": self.player_id, "pocket": self.pocket, "chest": self.chest}))
+        match_history.add_event(MatchEvent("player_leaves",
+                                           {"player_id": self.player_id, "pocket": self.pocket, "chest": self.chest}))
         self.in_cave = False
         self.continuing = False
         self.chest += self.pocket
@@ -305,7 +314,6 @@ async def run_game(engine_interface):     # run a full game of diamant
     player_list = [Player(player_id) for player_id in engine_interface.players]
 
     match_history = MatchHistory()
-    match_history.add_event(MatchEvent("game_start", {}))
 
     for path_num in range(5):      # do 5 paths
         match_history.add_event(MatchEvent("new_path", {"path_num": path_num}))
@@ -321,8 +329,6 @@ async def run_game(engine_interface):     # run a full game of diamant
             winner_list.append(player)
         elif player.chest > winner_list[0].chest:
             winner_list = [player]
-    match_history.add_event(MatchEvent("winners_determined",
-                                       {"winner_list": [player.player_id for player in winner_list]}))
 
     return [player.player_id for player in winner_list], match_history
 

@@ -100,39 +100,50 @@ class PlayerTestCase(unittest.TestCase):
 
     def test_player_pickup_loot(self):
         player = game_engine.Player(123)
+        match_history = game_engine.MatchHistory()
 
         pickup_amount = 10
-        player.pickup_loot(10)
+        player.pickup_loot(10, match_history)
 
         self.assertEqual(player.pocket, pickup_amount)
+        self.assertEqual(str(match_history),
+                         "[{'event_type': 'player_pickup', 'content': {'player_id': 123, 'pocket': 0, 'amount': 10}}]")
 
     def test_player_leave_cave(self):
         player = game_engine.Player(123)
+        match_history = game_engine.MatchHistory()
 
         chest_amount = player.chest
 
         pickup_amount = 10
-        player.pickup_loot(pickup_amount)
+        player.pickup_loot(pickup_amount, match_history)
 
-        player.leave_cave()
+        player.leave_cave(match_history)
 
         self.assertEqual(player.chest, chest_amount + pickup_amount)
         self.assertEqual(player.pocket, 0)
         self.assertFalse(player.continuing)
         self.assertFalse(player.in_cave)
 
+        self.assertEqual(str(match_history.match_timeline[1]),
+                         "{'event_type': 'player_leaves', 'content': {'player_id': 123, 'pocket': 10, 'chest': 0}}")
+
     def test_player_kill(self):
         player = game_engine.Player(123)
         player.chest = 5
+        match_history = game_engine.MatchHistory()
 
-        player.pickup_loot(10)
+        player.pickup_loot(10, match_history)
 
-        player.kill_player()
+        player.kill_player(match_history)
 
         self.assertEqual(player.pocket, 0)
         self.assertEqual(player.chest, 5)
         self.assertFalse(player.in_cave)
         self.assertFalse(player.continuing)
+
+        self.assertEqual(str(match_history.match_timeline[1]),
+                         "{'event_type': 'player_death', 'content': {'player_id': 123, 'pocket': 10}}")
 
 
 class BoardTestCase(unittest.TestCase):
@@ -151,11 +162,12 @@ class BoardTestCase(unittest.TestCase):
 
     def test_board_add_card(self):
         board = game_engine.Board()
-        board.add_card(game_engine.Card("Treasure", 10))
-        board.add_card(game_engine.Card("Relic", 5))
-        board.add_card(game_engine.Card("Trap", "Snake"))
-        board.add_card(game_engine.Card("Trap", "Ram"))
-        board.add_card(game_engine.Card("Trap", "Snake"))
+        match_history = game_engine.MatchHistory()
+        board.add_card(game_engine.Card("Treasure", 10), match_history)
+        board.add_card(game_engine.Card("Relic", 5), match_history)
+        board.add_card(game_engine.Card("Trap", "Snake"), match_history)
+        board.add_card(game_engine.Card("Trap", "Ram"), match_history)
+        board.add_card(game_engine.Card("Trap", "Snake"), match_history)
 
         self.assertEqual(board.route[0].card_type, "Treasure")
         self.assertEqual(board.route[1].card_type, "Relic")
@@ -165,13 +177,21 @@ class BoardTestCase(unittest.TestCase):
         self.assertEqual(board.relics_picked, 1)
         self.assertTrue(board.double_trap)
 
+        self.assertEqual(str(match_history.match_timeline[0]),
+                         "{'event_type': 'board_add_card', 'content': {'card_type': 'Treasure', 'value': 10}}")
+        self.assertEqual(str(match_history.match_timeline[1]),
+                         "{'event_type': 'board_add_card', 'content': {'card_type': 'Relic', 'value': 5}}")
+        self.assertEqual(str(match_history.match_timeline[2]),
+                         "{'event_type': 'board_add_card', 'content': {'card_type': 'Trap', 'value': 'Snake'}}")
+
     def test_board_add_relics(self):
         board = game_engine.Board()
-        board.add_card(game_engine.Card("Relic", 5))
-        board.add_card(game_engine.Card("Relic", 5))
-        board.add_card(game_engine.Card("Relic", 5))
-        board.add_card(game_engine.Card("Relic", 5))
-        board.add_card(game_engine.Card("Relic", 5))
+        match_history = game_engine.MatchHistory()
+        board.add_card(game_engine.Card("Relic", 5), match_history)
+        board.add_card(game_engine.Card("Relic", 5), match_history)
+        board.add_card(game_engine.Card("Relic", 5), match_history)
+        board.add_card(game_engine.Card("Relic", 5), match_history)
+        board.add_card(game_engine.Card("Relic", 5), match_history)
 
         for i in range(3):
             self.assertEqual(board.route[i].value, 5)
@@ -181,11 +201,12 @@ class BoardTestCase(unittest.TestCase):
 
     def test_board_reset_path(self):
         board = game_engine.Board()
-        board.add_card(game_engine.Card("Treasure", 10))
-        board.add_card(game_engine.Card("Relic", 5))
-        board.add_card(game_engine.Card("Trap", "Snake"))
-        board.add_card(game_engine.Card("Trap", "Ram"))
-        board.add_card(game_engine.Card("Trap", "Snake"))
+        match_history = game_engine.MatchHistory()
+        board.add_card(game_engine.Card("Treasure", 10), match_history)
+        board.add_card(game_engine.Card("Relic", 5), match_history)
+        board.add_card(game_engine.Card("Trap", "Snake"), match_history)
+        board.add_card(game_engine.Card("Trap", "Ram"), match_history)
+        board.add_card(game_engine.Card("Trap", "Snake"), match_history)
 
         board.reset_path()
         self.assertEqual(board.route, [])
@@ -202,22 +223,27 @@ class AdvancementPhaseTestCase(unittest.TestCase):
             self.players.append(game_engine.Player(i))
         self.board = game_engine.Board()
         self.first_card = self.deck.cards[0]
+        self.match_history = game_engine.MatchHistory()
 
     def test_handle_treasure_loot(self):
         card = game_engine.Card("Treasure", 7)
 
-        game_engine.handle_treasure_loot(card, self.players)
+        game_engine.handle_treasure_loot(card, 0, self.players, self.match_history)
 
         self.assertEqual(card.value, 1)
 
         for player in self.players:
             self.assertEqual(player.pocket, 1)
 
+        self.assertEqual(str(self.match_history.match_timeline[0]),
+                         "{'event_type': 'board_change_card', "
+                         "'content': {'card_index': 0, 'card_type': 'Treasure', 'value': 1}}")
+
     def test_advance_no_actives(self):
         for player in self.players:
             player.in_cave = False
 
-        outcome = game_engine.advancement_phase(self.deck, self.players, self.board)
+        outcome = game_engine.advancement_phase(self.deck, self.players, self.board, self.match_history)
 
         self.assertTrue(outcome)
         self.assertEqual(self.first_card, self.board.route[0])
@@ -226,7 +252,7 @@ class AdvancementPhaseTestCase(unittest.TestCase):
         self.deck.cards[0] = game_engine.Card("Trap", "Snake")
         self.board.route.append(game_engine.Card("Trap", "Snake"))
 
-        outcome = game_engine.advancement_phase(self.deck, self.players, self.board)
+        outcome = game_engine.advancement_phase(self.deck, self.players, self.board, self.match_history)
 
         self.assertTrue(outcome)
         for player in self.players:
@@ -235,7 +261,7 @@ class AdvancementPhaseTestCase(unittest.TestCase):
     def test_advance_treasure(self):
         self.deck.cards[0] = game_engine.Card("Treasure", 7)
 
-        outcome = game_engine.advancement_phase(self.deck, self.players, self.board)
+        outcome = game_engine.advancement_phase(self.deck, self.players, self.board, self.match_history)
 
         self.assertFalse(outcome)
 
@@ -249,18 +275,19 @@ class HandleLeavingPlayersTestCase(unittest.TestCase):
         self.players = []
         for i in range(6):
             self.players.append(game_engine.Player(i))
+        self.match_history = game_engine.MatchHistory()
 
     def test_handle_leaving_players_zero(self):
-        self.board.add_card(game_engine.Card("Treasure", 6))
+        self.board.add_card(game_engine.Card("Treasure", 6), self.match_history)
 
-        game_engine.handle_leaving_players(0, [], self.board)
+        game_engine.handle_leaving_players(0, [], self.board, self.match_history)
 
         self.assertEqual(self.board.route[0].value, 6)
 
     def test_handle_leaving_players_treasure(self):
-        self.board.add_card(game_engine.Card("Treasure", 6))
+        self.board.add_card(game_engine.Card("Treasure", 6), self.match_history)
 
-        game_engine.handle_leaving_players(6, self.players, self.board)
+        game_engine.handle_leaving_players(6, self.players, self.board, self.match_history)
 
         self.assertEqual(self.board.route[0].value, 0)
 
@@ -268,18 +295,22 @@ class HandleLeavingPlayersTestCase(unittest.TestCase):
             self.assertEqual(player.pocket, 1)
 
     def test_handle_leaving_players_relic(self):
-        self.board.add_card(game_engine.Card("Relic", 5))
+        self.board.add_card(game_engine.Card("Relic", 5), self.match_history)
 
-        game_engine.handle_leaving_players(2, self.players[:2], self.board)
+        game_engine.handle_leaving_players(2, self.players[:2], self.board, self.match_history)
 
         self.assertEqual(self.board.route[0].value, 5)
         self.assertEqual(self.players[0].pocket, 0)
         self.assertEqual(self.players[1].pocket, 0)
 
-        game_engine.handle_leaving_players(1, [self.players[0]], self.board)
+        game_engine.handle_leaving_players(1, [self.players[0]], self.board, self.match_history)
 
         self.assertEqual(self.board.route[0].value, 0)
         self.assertEqual(self.players[0].pocket, 5)
+
+        self.assertEqual(str(self.match_history.match_timeline[2]),
+                         "{'event_type': 'board_change_card', "
+                         "'content': {'card_index': 0, 'card_type': 'Relic', 'value': 0}}")
 
 
 class DecisionPhaseTestCase(unittest.IsolatedAsyncioTestCase):
@@ -289,18 +320,20 @@ class DecisionPhaseTestCase(unittest.IsolatedAsyncioTestCase):
         for i in range(6):
             self.players.append(game_engine.Player(i))
         self.ei = TestEngineInterface()
+        self.match_history = game_engine.MatchHistory()
 
     async def test_correct_players_leaving(self):
         self.players[0].in_cave = False
         original_value = 5
-        self.board.add_card(game_engine.Card("Treasure", original_value))
+        self.board.add_card(game_engine.Card("Treasure", original_value), self.match_history)
 
-        await game_engine.decision_phase(self.players, self.board, self.ei)
+        await game_engine.decision_phase(self.players, self.board, self.ei, self.match_history)
 
         self.assertEqual(self.players[0].chest, 0)
 
         leaving_players = [player for player in self.players[1:] if player.continuing is False]
         self.assertEqual(self.board.route[0].value, original_value % len(leaving_players))
+        self.assertEqual((len(self.match_history.match_timeline) - 2) / 2, len(leaving_players))
 
         for left_player in leaving_players:
             self.assertFalse(left_player.in_cave)
@@ -315,12 +348,17 @@ class SingleTurnTestCase(unittest.IsolatedAsyncioTestCase):
             self.players.append(game_engine.Player(i))
         self.board = game_engine.Board()
         self.ei = TestEngineInterface()
+        self.match_history = game_engine.MatchHistory()
 
     async def test_failure_state_traps(self):
         self.deck.cards[0] = game_engine.Card("Trap", "Snake")
         self.board.route.append(game_engine.Card("Trap", "Snake"))
 
-        outcome = await game_engine.single_turn(self.deck, self.players, self.board, self.ei)
+        outcome = await game_engine.single_turn(self.deck, self.players, self.board, self.ei, self.match_history)
+
+        self.assertEqual(str(self.match_history.match_timeline[0]),
+                         "{'event_type': 'board_trap_trigger', "
+                         "'content': {'card_type': 'Trap', 'value': 'Snake'}}")
 
         self.assertTrue(outcome)
 
@@ -328,12 +366,12 @@ class SingleTurnTestCase(unittest.IsolatedAsyncioTestCase):
         for player in self.players:
             player.in_cave = False
 
-        outcome = await game_engine.single_turn(self.deck, self.players, self.board, self.ei)
+        outcome = await game_engine.single_turn(self.deck, self.players, self.board, self.ei, self.match_history)
 
         self.assertTrue(outcome)
 
     async def test_passing_state(self):
-        outcome = await game_engine.single_turn(self.deck, self.players, self.board, self.ei)
+        outcome = await game_engine.single_turn(self.deck, self.players, self.board, self.ei, self.match_history)
 
         self.assertFalse(outcome)
 
@@ -346,12 +384,13 @@ class RunPathTestCase(unittest.IsolatedAsyncioTestCase):
             self.players.append(game_engine.Player(i))
         self.board = game_engine.Board()
         self.ei = TestEngineInterface()
+        self.match_history = game_engine.MatchHistory()
 
     async def test_run_path_reset_failure(self):
         self.deck.cards[0] = game_engine.Card("Trap", "Snake")
         self.deck.cards[1] = game_engine.Card("Trap", "Snake")
 
-        await game_engine.run_path(self.deck, self.players, self.board, self.ei)
+        await game_engine.run_path(self.deck, self.players, self.board, self.ei, self.match_history)
 
         self.assertEqual(self.board.route, [])
         self.assertFalse(self.board.double_trap)
@@ -374,10 +413,14 @@ class RunGameTestCase(unittest.IsolatedAsyncioTestCase):
     async def test_run_game_return_type(self):
         ei = TestEngineInterface()
 
-        winner_list = await game_engine.run_game(ei)
+        winner_list, match_history = await game_engine.run_game(ei)
 
         for winner in winner_list:
             self.assertEqual(type(winner), int)
+
+        self.assertEqual(str(match_history.match_timeline[0]),
+                         "{'event_type': 'new_path', "
+                         "'content': {'path_num': 0}}")
 
 
 if __name__ == '__main__':
