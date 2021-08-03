@@ -324,4 +324,4 @@ async def main():
 
 
 if __name__ == '__main__':
-    asyncio.run(main())  # start game duh
+    asyncio.run(main()) # bad comment
