@@ -274,7 +274,7 @@ async def single_turn(path_deck, path_player_list, path_board, ei, match_history
     expedition_failed = advancement_phase(path_deck, path_player_list, path_board, match_history)
     if expedition_failed:  # propagate the failure up
         return True
-    # decision phase
+
     await decision_phase(path_player_list, path_board, ei, match_history)
     return False
 
