@@ -1,7 +1,7 @@
 
 import unittest
 
-import numpy as np
+import random
 
 import game_engine
 
@@ -17,7 +17,7 @@ class TestEngineInterface:
         pass
 
     def roll_decision(self):
-        decision = np.random.randint(0, 2)
+        decision = random.randint(0, 1)
         return decision
 
     async def request_decisions(self):
@@ -325,6 +325,8 @@ class DecisionPhaseTestCase(unittest.IsolatedAsyncioTestCase):
         self.players[0].in_cave = False
         original_value = 5
         self.board.add_card(game_engine.Card("Treasure", original_value), self.match_history)
+
+        random.seed(0)
 
         await game_engine.decision_phase(self.players, self.board, self.ei, self.match_history)
 
