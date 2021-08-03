@@ -30,7 +30,7 @@ jobs:
           pip install coverage
       
       - name: Test & publish code coverage
-        uses: paambaati/codeclimate-action@v2.7.5
+        uses: paambaati/codeclimate-action@v2.7.1
         env:
           CC_TEST_REPORTER_ID: 8396930e2ff5b0983b761da8919fb486fda07c55411761938201bcdcad42dcbd
         with:
