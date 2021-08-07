@@ -1,7 +1,5 @@
 import unittest
-
 import random
-
 import game_engine
 from game_engine import MatchEvent
 
@@ -20,7 +18,7 @@ class TestEngineInterface:
     async def request_decisions(_):
         decisions = []
         for i in range(6):
-            decisions.append({"decision": np.random.randint(0, 2)})
+            decisions.append({"decision": random.randint(0, 1)})
         decisions = {player_id: decisions[i] for i, player_id in enumerate(range(6))}
         return decisions
 
