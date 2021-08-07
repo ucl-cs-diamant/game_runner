@@ -1,34 +1,31 @@
-
 import unittest
 
 import numpy as np
 
 import game_engine
+from game_engine import MatchEvent
 
 
 class TestEngineInterface:
     def __init__(self):
         self.players = range(6)
 
-    def check_dead_players(self):
-        pass
+    # def check_dead_players(self):
+    #     pass
+    #
+    # async def init_game(self):
+    #     pass
 
-    async def init_game(self):
-        pass
-
-    def roll_decision(self):
-        decision = np.random.randint(0, 2)
-        return decision
-
-    async def request_decisions(self):
+    @staticmethod
+    async def request_decisions(_):
         decisions = []
         for i in range(6):
-            decisions.append({"decision": self.roll_decision()})
+            decisions.append({"decision": np.random.randint(0, 2)})
         decisions = {player_id: decisions[i] for i, player_id in enumerate(range(6))}
         return decisions
 
-    def report_outcome(self, winning_players: list):
-        pass
+    # def report_outcome(self, winning_players: list):
+    #     pass
 
 
 class CardTestCase(unittest.TestCase):
@@ -338,6 +335,22 @@ class DecisionPhaseTestCase(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(left_player.in_cave)
             self.assertEqual(left_player.chest, original_value // len(leaving_players))
 
+    async def test_game_state_empty(self):
+        self.match_history.get_updates()
+        self.assertEqual([], self.match_history.get_updates())
+
+    async def test_game_state_updates(self):
+        self.match_history.add_event(MatchEvent.CHANGE_CARD, {"card_index": 1,
+                                                              "card_type": "Treasure",
+                                                              "value": 5})
+        self.assertEqual([{'event_type': 'board_change_card',
+                           'content':
+                               {'card_index': 1,
+                                'card_type': 'Treasure',
+                                'value': 5}
+                           }],
+                         self.match_history.get_updates())
+
 
 def create_game_engine_self_state():
     deck = game_engine.Deck()
@@ -400,7 +413,7 @@ class RunPathTestCase(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(player.continuing)
 
 
-class SetupGameTestCase(unittest.TestCase):     # todo: expand upon later
+class SetupGameTestCase(unittest.TestCase):  # todo: expand upon later
     def test_return_types(self):
         deck, board = game_engine.setup_game()
 

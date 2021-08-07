@@ -74,9 +74,18 @@ class MatchEvent(Enum):
 class MatchHistory(list):
     def __init__(self):
         super().__init__()
+        self.update_pointer = 0
 
     def add_event(self, event_type: MatchEvent, event_data: dict):  # couldn't find a best practices document for this
         self.append({"event_type": event_type.value, "content": event_data})
+
+    def get_updates(self):
+        if self.update_pointer >= len(self):  # should never happen, events must happen between decision requests
+            return []
+
+        start_of_updates = self.update_pointer
+        self.update_pointer = len(self)
+        return self[start_of_updates:]
 
 
 class Card:
@@ -221,13 +230,9 @@ def advancement_phase(path_deck, path_player_list, path_board, match_history: Ma
         return False
 
 
-async def make_decisions(path_player_list, ei):  # actually make the players make a decision
-    # for player in path_player_list:
-    #     if player.in_cave:
-    #         player.decide_action()
-    player_decisions = await ei.request_decisions()
-    # for player_id in player_decisions:
-    #     path_player_list[player_id].continuing = player_decisions[player_id]["decision"]
+async def make_decisions(path_player_list, match_history, ei):  # actually make the players make a decision
+    player_decisions = await ei.request_decisions(match_history.get_updates())
+
     for player in path_player_list:
         player.continuing = player_decisions[player.player_id]["decision"]
 
@@ -255,7 +260,7 @@ def handle_leaving_players(no_leaving_players, leaving_players, path_board, matc
 
 
 async def decision_phase(path_player_list, path_board, ei, match_history: MatchHistory):
-    await make_decisions(path_player_list, ei)
+    await make_decisions(path_player_list, match_history, ei)
 
     # leaving players leaving and number of leaving players
     leaving_players = [player for player in path_player_list if player.in_cave and not player.continuing]
