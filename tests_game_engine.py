@@ -1,6 +1,6 @@
 import unittest
 
-import numpy as np
+import random
 
 import game_engine
 from game_engine import MatchEvent
@@ -322,6 +322,8 @@ class DecisionPhaseTestCase(unittest.IsolatedAsyncioTestCase):
         self.players[0].in_cave = False
         original_value = 5
         self.board.add_card(game_engine.Card("Treasure", original_value), self.match_history)
+
+        random.seed(0)
 
         await game_engine.decision_phase(self.players, self.board, self.ei, self.match_history)
 

@@ -26,8 +26,19 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip && \
-          pip install -r requirements.txt
-
-      - name: Run tests
+          pip install -r requirements.txt && \
+          pip install coverage
+      
+      - name: Test and save coverage report
         run: |
-          python -m unittest
+          coverage run -m unittest
+          coverage xml -o coverage.xml   
+          
+      - name: Publish code coverage
+        uses: paambaati/codeclimate-action@v2.7.5
+        env:
+          CC_TEST_REPORTER_ID: 8396930e2ff5b0983b761da8919fb486fda07c55411761938201bcdcad42dcbd
+        with:
+          coverageCommand: coverage report
+          debug: true
+          
