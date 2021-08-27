@@ -320,7 +320,7 @@ async def run_game(engine_interface):  # run a full game of diamant
     return [player.player_id for player in winner_list], match_history
 
 
-async def main():
+async def init_game():
     engine_interface = EngineInterface(os.environ.get("GAMESERVER_HOST", "GAMESERVER_HOST_MISSING"),
                                        int(os.environ.get("GAMESERVER_PORT", 80)))
 
@@ -330,10 +330,13 @@ async def main():
     engine_interface.report_outcome(winners, match_history)
 
 
-if __name__ == '__main__':
+def main():
     try:
-        asyncio.run(main())
+        asyncio.run(init_game())
     except (ValueError, RuntimeError):
-        traceback.print_exc()
-    except Exception:
-        traceback.print_exc()
+        traceback.print_exc(chain=False)
+        return False
+
+
+if __name__ == '__main__':
+    main()
