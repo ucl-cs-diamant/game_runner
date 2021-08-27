@@ -1,5 +1,9 @@
+import sys
 import unittest
 import random
+import io
+from unittest import mock
+
 import game_engine
 from game_engine import MatchEvent
 
@@ -305,6 +309,27 @@ class HandleLeavingPlayersTestCase(unittest.TestCase):
         self.assertEqual(str(self.match_history[2]),
                          "{'event_type': 'board_change_card', "
                          "'content': {'card_index': 0, 'card_type': 'Relic', 'value': 0}}")
+
+
+class TestExceptionHandling(unittest.TestCase):
+    def setUp(self) -> None:
+        pass
+
+    @staticmethod
+    async def value_error_raiser():
+        raise ValueError
+
+    def test_missing_gameserver_address(self):
+        stderr_output = io.StringIO()
+
+        with mock.patch.object(game_engine, "init_game", self.value_error_raiser):
+            old_sys_stderr = sys.stderr  # PyCharm debugger changes sys.stderr and won't take the normal sys.__stderr__
+            sys.stderr = stderr_output
+            main_result = game_engine.main()
+            sys.stderr = old_sys_stderr
+
+        self.assertEqual(False, main_result)
+        self.assertTrue('ValueError' in stderr_output.getvalue())
 
 
 class DecisionPhaseTestCase(unittest.IsolatedAsyncioTestCase):
