@@ -5,6 +5,8 @@ import asyncio
 from diamant_game_interface import EngineInterface
 from typing import Union
 from enum import Enum
+import logging
+import traceback
 
 
 def generate_deck(exclusions: Union[list, None]) -> list:
@@ -324,9 +326,14 @@ async def main():
 
     await engine_interface.init_game()
     winners, match_history = await run_game(engine_interface)
-    print(str(winners) + " winner winner chicken dinner!")
+    logging.info(str(winners) + " winner winner chicken dinner!")
     engine_interface.report_outcome(winners, match_history)
 
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except (ValueError, RuntimeError):
+        traceback.print_exc()
+    except Exception:
+        traceback.print_exc()
