@@ -1,11 +1,10 @@
-import os
-
-import numpy as np
 import asyncio
-from diamant_game_interface import EngineInterface
-from typing import Union
+from collections.abc import Callable
 from enum import Enum
 import logging
+import numpy as np
+import os
+from typing import Union
 import traceback
 
 
@@ -187,156 +186,172 @@ class Board:
         self.double_trap = False
 
 
-def setup_game():
-    initial_deck = Deck()
-    empty_board = Board()
-    return initial_deck, empty_board
+class GameEngine:
+    def __init__(self, offline_decision_maker: Callable = None):
 
+        self.match_history = MatchHistory()
+        self.offline = offline_decision_maker is not None
 
-def handle_treasure_loot(board_card, card_index, players, match_history: MatchHistory):
-    # board_card is either the new card, or the card on the route as the players are leaving
-    # players are the players who decided to leave or the remaining active players
-    no_players = len(players)
-    obtained_loot = board_card.value // no_players  # do integer division of the loot
-    board_card.value = board_card.value % no_players  # set new value to reflect taken loot
-    match_history.add_event(MatchEvent.CHANGE_CARD, {"card_index": card_index,
-                                                     "card_type": board_card.card_type,
-                                                     "value": board_card.value})
+        if offline_decision_maker is None:
+            from diamant_game_interface import EngineInterface
+            self.event_loop = asyncio.get_event_loop()
+            self.engine_interface = EngineInterface(os.environ.get("GAMESERVER_HOST"),
+                                                    os.environ.get("GAMESERVER_PORT"))
 
-    for player in players:  # go through the provided player list and give them the divided loot
-        player.pickup_loot(obtained_loot, match_history)
+            self.engine_interface.init_game()
+            self.event_loop.run_until_complete(self.engine_interface.init_players())
+            return
 
+        from diamant_game_interface import OfflineEngineInterface
+        self.engine_interface = OfflineEngineInterface(offline_decision_maker)
+        self.engine_interface.init_players()
 
-def advancement_phase(path_deck, path_player_list, path_board, match_history: MatchHistory):
-    path_board.add_card(path_deck.pick_card(), match_history)
+    @staticmethod
+    def setup_game():
+        initial_deck = Deck()
+        empty_board = Board()
+        return initial_deck, empty_board
 
-    active_players = [player for player in path_player_list if player.in_cave]
-    no_active_players = len(active_players)
-    if no_active_players == 0:
-        return True  # return immediately to move to the next expedition
+    def get_decisions(self):
+        if self.offline:
+            return self.engine_interface.request_decisions(self.match_history.get_updates())
+        return self.event_loop.run_until_complete(
+            self.engine_interface.request_decisions(self.match_history.get_updates()))
 
-    last_route = path_board.route[-1]
+    def handle_treasure_loot(self, board_card, card_index, players):
 
-    if last_route.card_type == "Treasure":
-        handle_treasure_loot(last_route, path_board.route.index(last_route), active_players, match_history)
+        # board_card is either the new card, or the card on the route as the players are leaving
+        # players are the players who decided to leave or the remaining active players
+        no_players = len(players)
+        obtained_loot = board_card.value // no_players  # do integer division of the loot
+        board_card.value = board_card.value % no_players  # set new value to reflect taken loot
+        self.match_history.add_event(MatchEvent.CHANGE_CARD, {"card_index": card_index,
+                                                              "card_type": board_card.card_type,
+                                                              "value": board_card.value})
 
-    if last_route.card_type == "Relic":  # this IF is here for sheer readability and does nothing
-        pass
+        for player in players:  # go through the provided player list and give them the divided loot
+            player.pickup_loot(obtained_loot, self.match_history)
 
-    if last_route.card_type == "Trap":
-        if path_board.double_trap:  # if its the second trap, kill all active players
-            for player in active_players:  # go through the  player list and kill all the remaining active players
-                player.kill_player(match_history)
-            return True  # return a true flag to show the expedition should fail
-    else:
+    def advancement_phase(self, path_deck, path_player_list, path_board):
+        path_board.add_card(path_deck.pick_card(), self.match_history)
+
+        active_players = [player for player in path_player_list if player.in_cave]
+        no_active_players = len(active_players)
+        if no_active_players == 0:
+            return True  # return immediately to move to the next expedition
+
+        last_route = path_board.route[-1]
+
+        if last_route.card_type == "Treasure":
+            self.handle_treasure_loot(last_route, path_board.route.index(last_route), active_players)
+
+        if last_route.card_type == "Relic":  # this IF is here for sheer readability and does nothing
+            pass
+
+        if last_route.card_type == "Trap":
+            if path_board.double_trap:  # if its the second trap, kill all active players
+                for player in active_players:  # go through the  player list and kill all the remaining active players
+                    player.kill_player(self.match_history)
+                return True  # return a true flag to show the expedition should fail
+        else:
+            return False
+
+    def make_decisions(self, path_player_list):  # actually make the players make a decision
+        # player_decisions = asyncio.run(ei.request_decisions(match_history.get_updates()))
+
+        # player_decisions = self.event_loop.run_until_complete(
+        #     self.engine_interface.request_decisions(self.match_history.get_updates()))
+
+        player_decisions = self.get_decisions()
+
+        for player in path_player_list:
+            player.continuing = player_decisions[player.player_id]["decision"]
+
+    def handle_leaving_players(self, no_leaving_players, leaving_players, path_board):
+        # function that handles card values and loot distribution upon leaving
+        if no_leaving_players > 0:
+            for board_card in path_board.route:
+                if board_card.card_type == "Treasure":  # split loot evenly between players on treasure cards
+                    self.handle_treasure_loot(board_card, path_board.route.index(board_card), leaving_players)
+
+                # check if there is a relic to pick up (maybe pointless but it saves running the extra code 9/10 times)
+                if board_card.card_type == "Relic" and board_card.value != 0:
+                    if no_leaving_players == 1:
+                        for player in leaving_players:
+                            player.pickup_loot(board_card.value, self.match_history)
+                            board_card.value = 0
+                            self.match_history.add_event(MatchEvent.CHANGE_CARD,
+                                                         {"card_index": path_board.route.index(board_card),
+                                                          "card_type": board_card.card_type,
+                                                          "value": board_card.value})
+
+                if board_card.card_type == "Trap":  # dont care about traps
+                    pass
+
+    def decision_phase(self, path_player_list, path_board):
+        self.make_decisions(path_player_list)
+
+        # leaving players leaving and number of leaving players
+        leaving_players = [player for player in path_player_list if player.in_cave and not player.continuing]
+        no_leaving_players = len(leaving_players)
+
+        # split the loot evenly between all leaving players, if one player is leaving, collect the relics
+        self.handle_leaving_players(no_leaving_players, leaving_players, path_board)
+
+        # once the board calculations are done, the players need to actually leave the cave
+        for player in leaving_players:
+            player.leave_cave(self.match_history)
+
+    def single_turn(self, path_deck, path_player_list, path_board):
+        # advancement phase
+        expedition_failed = self.advancement_phase(path_deck, path_player_list, path_board)
+        if expedition_failed:  # propagate the failure up
+            return True
+        # decision phase
+        self.decision_phase(path_player_list, path_board)
         return False
 
+    def run_path(self, deck, player_list, board):
+        # runs through a path until all players leave or the run dies
+        path_complete = False
+        while not path_complete:
+            path_complete = self.single_turn(deck, player_list, board)
+        board.reset_path()  # reset board for a new path
+        for player in player_list:  # reset all players so they are able to participate in the next path
+            player.reset_player()
 
-async def make_decisions(path_player_list, match_history, ei):  # actually make the players make a decision
-    player_decisions = await ei.request_decisions(match_history.get_updates())
+    def run_game(self):  # run a full game of diamant
+        deck, board = self.setup_game()
+        player_list = [Player(player_id) for player_id in self.engine_interface.players]
 
-    for player in path_player_list:
-        player.continuing = player_decisions[player.player_id]["decision"]
+        for path_num in range(5):  # do 5 paths
+            self.match_history.add_event(MatchEvent.NEW_PATH, {"path_num": path_num})
+            self.run_path(deck, player_list, board)
+            excluded_cards = board.excluded_cards
+            for relic_count in range(board.relics_picked):  # add an exclusion for every picked relic
+                excluded_cards.append(Card("Relic", 5))
+            deck = Deck(excluded_cards)
 
+        winner_list = []
+        for player in player_list:
+            # if there is a draw, players share the win
+            if len(winner_list) == 0 or player.chest == winner_list[0].chest:
+                winner_list.append(player)
+            elif player.chest > winner_list[0].chest:
+                winner_list = [player]
 
-def handle_leaving_players(no_leaving_players, leaving_players, path_board, match_history: MatchHistory):
-    # function that handles card values and loot distribution upon leaving
-    if no_leaving_players > 0:
-        for board_card in path_board.route:
-            if board_card.card_type == "Treasure":  # split loot evenly between players on treasure cards
-                handle_treasure_loot(board_card, path_board.route.index(board_card), leaving_players, match_history)
+        return [player.player_id for player in winner_list]
 
-            # check if there is a relic to pick up (arguably pointless but it saves running the extra code 9/10 times)
-            if board_card.card_type == "Relic" and board_card.value != 0:
-                if no_leaving_players == 1:
-                    for player in leaving_players:
-                        player.pickup_loot(board_card.value, match_history)
-                        board_card.value = 0
-                        match_history.add_event(MatchEvent.CHANGE_CARD,
-                                                {"card_index": path_board.route.index(board_card),
-                                                 "card_type": board_card.card_type,
-                                                 "value": board_card.value})
-
-            if board_card.card_type == "Trap":  # dont care about traps
-                pass
-
-
-async def decision_phase(path_player_list, path_board, ei, match_history: MatchHistory):
-    await make_decisions(path_player_list, match_history, ei)
-
-    # leaving players leaving and number of leaving players
-    leaving_players = [player for player in path_player_list if player.in_cave and not player.continuing]
-    no_leaving_players = len(leaving_players)
-
-    # split the loot evenly between all leaving players, if one player is leaving, collect the relics
-    handle_leaving_players(no_leaving_players, leaving_players, path_board, match_history)
-
-    # once the board calculations are done, the players need to actually leave the cave
-    for player in leaving_players:
-        player.leave_cave(match_history)
-
-
-async def single_turn(path_deck, path_player_list, path_board, ei, match_history):
-    # advancement phase
-    expedition_failed = advancement_phase(path_deck, path_player_list, path_board, match_history)
-    if expedition_failed:  # propagate the failure up
-        return True
-    # decision phase
-    await decision_phase(path_player_list, path_board, ei, match_history)
-    return False
-
-
-async def run_path(deck, player_list, board, ei, match_history):
-    # runs through a path until all players leave or the run dies
-    path_complete = False
-    while not path_complete:
-        path_complete = await single_turn(deck, player_list, board, ei, match_history)
-    board.reset_path()  # reset board for a new path
-    for player in player_list:  # reset all players so they are able to participate in the next path
-        player.reset_player()
-
-
-async def run_game(engine_interface):  # run a full game of diamant
-    deck, board = setup_game()
-    player_list = [Player(player_id) for player_id in engine_interface.players]
-
-    match_history = MatchHistory()
-
-    for path_num in range(5):  # do 5 paths
-        match_history.add_event(MatchEvent.NEW_PATH, {"path_num": path_num})
-        await run_path(deck, player_list, board, engine_interface, match_history)
-        excluded_cards = board.excluded_cards
-        for relic_count in range(board.relics_picked):  # add an exclusion for every picked relic
-            excluded_cards.append(Card("Relic", 5))
-        deck = Deck(excluded_cards)
-
-    winner_list = []
-    for player in player_list:
-        if len(winner_list) == 0 or player.chest == winner_list[0].chest:  # if there is a draw, players share the win
-            winner_list.append(player)
-        elif player.chest > winner_list[0].chest:
-            winner_list = [player]
-
-    return [player.player_id for player in winner_list], match_history
-
-
-async def init_game():
-    engine_interface = EngineInterface(os.environ.get("GAMESERVER_HOST", "GAMESERVER_HOST_MISSING"),
-                                       int(os.environ.get("GAMESERVER_PORT", 80)))
-
-    await engine_interface.init_game()
-    winners, match_history = await run_game(engine_interface)
-    logging.info(str(winners) + " winner winner chicken dinner!")
-    engine_interface.report_outcome(winners, match_history)
-
-
-def main():
-    try:
-        asyncio.run(init_game())
-    except (ValueError, RuntimeError):
-        traceback.print_exc(chain=False)
-        return False
+    def start(self):
+        try:
+            winners = self.run_game()
+            logging.info(str(winners) + " winner winner chicken dinner!")
+            self.engine_interface.report_outcome(winners, self.match_history)
+        except (ValueError, RuntimeError):
+            traceback.print_exc(chain=False)
+            return False
 
 
 if __name__ == '__main__':
-    main()
+    game_engine = GameEngine()
+    game_engine.start()

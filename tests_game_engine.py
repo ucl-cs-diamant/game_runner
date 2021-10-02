@@ -1,7 +1,6 @@
-import sys
+import asyncio
 import unittest
 import random
-import io
 from unittest import mock
 
 import game_engine
@@ -9,8 +8,14 @@ from game_engine import MatchEvent
 
 
 class TestEngineInterface:
-    def __init__(self):
+    def __init__(self, *_):
         self.players = range(6)
+
+    def init_game(self):
+        pass
+
+    async def init_players(self):
+        pass
 
     # def check_dead_players(self):
     #     pass
@@ -213,8 +218,29 @@ class BoardTestCase(unittest.TestCase):
         self.assertEqual(board.excluded_cards[0].value, 5)
 
 
+def get_or_create_event_loop():
+    # try:
+    #     loop = asyncio.get_event_loop()
+    #     print("got loop from get")
+    #     return loop
+    # except RuntimeError as ex:
+    #     if "There is no current event loop in thread" in str(ex):
+    #         print("creating new loop")
+    #         loop = asyncio.new_event_loop()
+    #         asyncio.set_event_loop(loop)
+    #         return asyncio.get_event_loop()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    return loop
+
+
+# @mock.patch('asyncio.get_event_loop', get_or_create_event_loop)
 class AdvancementPhaseTestCase(unittest.TestCase):
+    @mock.patch('diamant_game_interface.EngineInterface', TestEngineInterface)
     def setUp(self):
+        # with mock.patch('diamant_game_interface.OnlineEngineInterface', TestEngineInterface):
+        self.game_engine = game_engine.GameEngine()
+
         self.deck = game_engine.Deck()
         self.players = []
         for i in range(6):
@@ -226,14 +252,14 @@ class AdvancementPhaseTestCase(unittest.TestCase):
     def test_handle_treasure_loot(self):
         card = game_engine.Card("Treasure", 7)
 
-        game_engine.handle_treasure_loot(card, 0, self.players, self.match_history)
+        self.game_engine.handle_treasure_loot(card, 0, self.players)
 
         self.assertEqual(card.value, 1)
 
         for player in self.players:
             self.assertEqual(player.pocket, 1)
 
-        self.assertEqual(str(self.match_history[0]),
+        self.assertEqual(str(self.game_engine.match_history[0]),
                          "{'event_type': 'board_change_card', "
                          "'content': {'card_index': 0, 'card_type': 'Treasure', 'value': 1}}")
 
@@ -241,7 +267,7 @@ class AdvancementPhaseTestCase(unittest.TestCase):
         for player in self.players:
             player.in_cave = False
 
-        outcome = game_engine.advancement_phase(self.deck, self.players, self.board, self.match_history)
+        outcome = self.game_engine.advancement_phase(self.deck, self.players, self.board)
 
         self.assertTrue(outcome)
         self.assertEqual(self.first_card, self.board.route[0])
@@ -250,7 +276,7 @@ class AdvancementPhaseTestCase(unittest.TestCase):
         self.deck.cards[0] = game_engine.Card("Trap", "Snake")
         self.board.route.append(game_engine.Card("Trap", "Snake"))
 
-        outcome = game_engine.advancement_phase(self.deck, self.players, self.board, self.match_history)
+        outcome = self.game_engine.advancement_phase(self.deck, self.players, self.board)
 
         self.assertTrue(outcome)
         for player in self.players:
@@ -259,7 +285,7 @@ class AdvancementPhaseTestCase(unittest.TestCase):
     def test_advance_treasure(self):
         self.deck.cards[0] = game_engine.Card("Treasure", 7)
 
-        outcome = game_engine.advancement_phase(self.deck, self.players, self.board, self.match_history)
+        outcome = self.game_engine.advancement_phase(self.deck, self.players, self.board)
 
         self.assertFalse(outcome)
 
@@ -267,25 +293,37 @@ class AdvancementPhaseTestCase(unittest.TestCase):
             self.assertEqual(player.pocket, 1)
 
 
+# @mock.patch('asyncio.get_event_loop', get_or_create_event_loop)
 class HandleLeavingPlayersTestCase(unittest.TestCase):
+    @mock.patch('diamant_game_interface.EngineInterface', TestEngineInterface)
     def setUp(self):
+        # loop = asyncio.new_event_loop()
+        # asyncio.set_event_loop(loop)
+        self.loop = get_or_create_event_loop()
+        # asyncio.set_event_loop(self.loop)
+
+        self.game_engine = game_engine.GameEngine()
+
         self.board = game_engine.Board()
         self.players = []
         for i in range(6):
             self.players.append(game_engine.Player(i))
         self.match_history = game_engine.MatchHistory()
 
+    def tearDown(self) -> None:
+        self.loop.close()
+
     def test_handle_leaving_players_zero(self):
         self.board.add_card(game_engine.Card("Treasure", 6), self.match_history)
 
-        game_engine.handle_leaving_players(0, [], self.board, self.match_history)
+        self.game_engine.handle_leaving_players(0, [], self.board)
 
         self.assertEqual(self.board.route[0].value, 6)
 
     def test_handle_leaving_players_treasure(self):
         self.board.add_card(game_engine.Card("Treasure", 6), self.match_history)
 
-        game_engine.handle_leaving_players(6, self.players, self.board, self.match_history)
+        self.game_engine.handle_leaving_players(6, self.players, self.board)
 
         self.assertEqual(self.board.route[0].value, 0)
 
@@ -293,75 +331,79 @@ class HandleLeavingPlayersTestCase(unittest.TestCase):
             self.assertEqual(player.pocket, 1)
 
     def test_handle_leaving_players_relic(self):
-        self.board.add_card(game_engine.Card("Relic", 5), self.match_history)
+        self.board.add_card(game_engine.Card("Relic", 5), self.game_engine.match_history)
 
-        game_engine.handle_leaving_players(2, self.players[:2], self.board, self.match_history)
+        self.game_engine.handle_leaving_players(2, self.players[:2], self.board)
 
         self.assertEqual(self.board.route[0].value, 5)
         self.assertEqual(self.players[0].pocket, 0)
         self.assertEqual(self.players[1].pocket, 0)
 
-        game_engine.handle_leaving_players(1, [self.players[0]], self.board, self.match_history)
+        self.game_engine.handle_leaving_players(1, [self.players[0]], self.board)
 
         self.assertEqual(self.board.route[0].value, 0)
         self.assertEqual(self.players[0].pocket, 5)
 
-        self.assertEqual(str(self.match_history[2]),
+        self.assertEqual(str(self.game_engine.match_history[2]),
                          "{'event_type': 'board_change_card', "
                          "'content': {'card_index': 0, 'card_type': 'Relic', 'value': 0}}")
 
 
 class TestExceptionHandling(unittest.TestCase):
     def setUp(self) -> None:
-        pass
+        self.loop = get_or_create_event_loop()
+
+    def tearDown(self) -> None:
+        self.loop.close()
 
     @staticmethod
     async def value_error_raiser():
         raise ValueError
 
     def test_missing_gameserver_address(self):
-        stderr_output = io.StringIO()
-
-        with mock.patch.object(game_engine, "init_game", self.value_error_raiser):
-            old_sys_stderr = sys.stderr  # PyCharm debugger changes sys.stderr and won't take the normal sys.__stderr__
-            sys.stderr = stderr_output
-            main_result = game_engine.main()
-            sys.stderr = old_sys_stderr
-
-        self.assertEqual(False, main_result)
-        self.assertTrue('ValueError' in stderr_output.getvalue())
+        try:
+            game_engine.GameEngine()
+            # main_result = ge.start()
+        except ValueError:
+            return
+        self.fail("No ValueError raised.")
 
 
 class DecisionPhaseTestCase(unittest.IsolatedAsyncioTestCase):
+    @mock.patch('diamant_game_interface.EngineInterface', TestEngineInterface)
     def setUp(self):
+        self.game_engine = game_engine.GameEngine()
+
         self.board = game_engine.Board()
         self.players = []
         for i in range(6):
             self.players.append(game_engine.Player(i))
-        self.ei = TestEngineInterface()
+        # self.ei = TestEngineInterface()
         self.match_history = game_engine.MatchHistory()
 
-    async def test_correct_players_leaving(self):
+    def test_correct_players_leaving(self):
         self.players[0].in_cave = False
         original_value = 5
-        self.board.add_card(game_engine.Card("Treasure", original_value), self.match_history)
+        self.board.add_card(game_engine.Card("Treasure", original_value), self.game_engine.match_history)
 
         random.seed(0)
 
-        await game_engine.decision_phase(self.players, self.board, self.ei, self.match_history)
+        self.game_engine.decision_phase(self.players, self.board)
 
         self.assertEqual(self.players[0].chest, 0)
 
         leaving_players = [player for player in self.players[1:] if player.continuing is False]
         self.assertEqual(self.board.route[0].value, original_value % len(leaving_players))
-        self.assertEqual((len(self.match_history) - 2) / 2, len(leaving_players))
+        # self.assertEqual((len(self.game_engine.match_history) - 2) / 2, len(leaving_players))
+        self.assertEqual(len(self.game_engine.match_history), 4)
+        self.assertEqual(len(leaving_players), 1)
 
         for left_player in leaving_players:
             self.assertFalse(left_player.in_cave)
             self.assertEqual(left_player.chest, original_value // len(leaving_players))
 
     async def test_game_state_empty(self):
-        self.match_history.get_updates()
+        self.game_engine.match_history.get_updates()
         self.assertEqual([], self.match_history.get_updates())
 
     async def test_game_state_updates(self):
@@ -383,51 +425,61 @@ def create_game_engine_self_state():
     for i in range(6):
         players.append(game_engine.Player(i))
     board = game_engine.Board()
-    ei = TestEngineInterface()
+    # ei = TestEngineInterface()
     match_history = game_engine.MatchHistory()
 
-    return deck, players, board, ei, match_history
+    # return deck, players, board, ei, match_history
+    return deck, players, board, match_history
 
 
 class SingleTurnTestCase(unittest.IsolatedAsyncioTestCase):
+    @mock.patch('diamant_game_interface.EngineInterface', TestEngineInterface)
     def setUp(self):
-        self.deck, self.players, self.board, self.ei, self.match_history = create_game_engine_self_state()
+        # self.deck, self.players, self.board, self.ei, self.match_history = create_game_engine_self_state()
+        self.deck, self.players, self.board, self.match_history = create_game_engine_self_state()
+        self.game_engine = game_engine.GameEngine()
 
-    async def test_failure_state_traps(self):
+    def test_failure_state_traps(self):
         self.deck.cards[0] = game_engine.Card("Trap", "Snake")
         self.board.route.append(game_engine.Card("Trap", "Snake"))
 
-        outcome = await game_engine.single_turn(self.deck, self.players, self.board, self.ei, self.match_history)
+        outcome = self.game_engine.single_turn(self.deck, self.players, self.board)
 
-        self.assertEqual(str(self.match_history[0]),
+        self.assertEqual(str(self.game_engine.match_history[0]),
                          "{'event_type': 'board_trap_trigger', "
                          "'content': {'card_type': 'Trap', 'value': 'Snake'}}")
 
         self.assertTrue(outcome)
 
-    async def test_failure_state_players(self):
+    def test_failure_state_players(self):
         for player in self.players:
             player.in_cave = False
 
-        outcome = await game_engine.single_turn(self.deck, self.players, self.board, self.ei, self.match_history)
+        outcome = self.game_engine.single_turn(self.deck, self.players, self.board)
 
         self.assertTrue(outcome)
 
-    async def test_passing_state(self):
-        outcome = await game_engine.single_turn(self.deck, self.players, self.board, self.ei, self.match_history)
+    def test_passing_state(self):
+        outcome = self.game_engine.single_turn(self.deck, self.players, self.board)
 
         self.assertFalse(outcome)
 
 
 class RunPathTestCase(unittest.IsolatedAsyncioTestCase):
+    @mock.patch('diamant_game_interface.EngineInterface', TestEngineInterface)
     def setUp(self):
-        self.deck, self.players, self.board, self.ei, self.match_history = create_game_engine_self_state()
+        self.loop = get_or_create_event_loop()
+        self.deck, self.players, self.board, self.match_history = create_game_engine_self_state()
+        self.game_engine = game_engine.GameEngine()
 
-    async def test_run_path_reset_failure(self):
+    def tearDown(self) -> None:
+        self.loop.close()
+
+    def test_run_path_reset_failure(self):
         self.deck.cards[0] = game_engine.Card("Trap", "Snake")
         self.deck.cards[1] = game_engine.Card("Trap", "Snake")
 
-        await game_engine.run_path(self.deck, self.players, self.board, self.ei, self.match_history)
+        self.game_engine.run_path(self.deck, self.players, self.board)
 
         self.assertEqual(self.board.route, [])
         self.assertFalse(self.board.double_trap)
@@ -439,23 +491,43 @@ class RunPathTestCase(unittest.IsolatedAsyncioTestCase):
 
 
 class SetupGameTestCase(unittest.TestCase):  # todo: expand upon later
+    def setUp(self) -> None:
+        self.loop = get_or_create_event_loop()
+
+    def tearDown(self) -> None:
+        self.loop.close()
+
+    @mock.patch('diamant_game_interface.EngineInterface', TestEngineInterface)
     def test_return_types(self):
-        deck, board = game_engine.setup_game()
+        ge = game_engine.GameEngine()
+        deck, board = ge.setup_game()
 
         self.assertEqual(type(deck), game_engine.Deck)
         self.assertEqual(type(board), game_engine.Board)
 
 
 class RunGameTestCase(unittest.IsolatedAsyncioTestCase):
-    async def test_run_game_return_type(self):
-        ei = TestEngineInterface()
+    @mock.patch('diamant_game_interface.EngineInterface', TestEngineInterface)
+    def setUp(self) -> None:
+        # loop = asyncio.new_event_loop()
+        # try:
+        #     loop = asyncio.get_event_loop()
+        # except asyncio.
+        # asyncio.set_event_loop(loop)
+        self.loop = get_or_create_event_loop()
 
-        winner_list, match_history = await game_engine.run_game(ei)
+        self.game_engine = game_engine.GameEngine()
+
+    def tearDown(self) -> None:
+        self.loop.close()
+
+    def test_run_game_return_type(self):
+        winner_list = self.game_engine.run_game()
 
         for winner in winner_list:
             self.assertEqual(type(winner), int)
 
-        self.assertEqual(str(match_history[0]),
+        self.assertEqual(str(self.game_engine.match_history[0]),
                          "{'event_type': 'new_path', "
                          "'content': {'path_num': 0}}")
 
