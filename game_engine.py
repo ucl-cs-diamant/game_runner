@@ -1,12 +1,14 @@
-import os
-
-import numpy as np
 import asyncio
-from diamant_game_interface import EngineInterface
-from typing import Union
+from collections.abc import Callable
 from enum import Enum
 import logging
+import numpy as np
+import os
+from typing import Union
 import traceback
+
+from diamant_game_interface import EngineInterface
+from diamant_game_interface import OfflineEngineInterface
 
 
 def generate_deck(exclusions: Union[list, None]) -> list:
@@ -188,14 +190,22 @@ class Board:
 
 
 class GameEngine:
-    def __init__(self):
-        self.event_loop = asyncio.get_event_loop()
-        self.engine_interface = EngineInterface(os.environ.get("GAMESERVER_HOST", "GAMESERVER_HOST_MISSING"),
-                                                int(os.environ.get("GAMESERVER_PORT", 80)))
-
-        self.engine_interface.init_game()
+    def __init__(self, offline_decision_maker: Callable = None):
 
         self.match_history = MatchHistory()
+        self.offline = offline_decision_maker is not None
+
+        if offline_decision_maker is None:
+            self.event_loop = asyncio.get_event_loop()
+            self.engine_interface = EngineInterface(os.environ.get("GAMESERVER_HOST"),
+                                                    os.environ.get("GAMESERVER_PORT"))
+
+            self.engine_interface.init_game()
+            self.event_loop.run_until_complete(self.engine_interface.init_players())
+            return
+
+        self.engine_interface = OfflineEngineInterface(offline_decision_maker)
+        self.engine_interface.init_players()
 
     @staticmethod
     def setup_game():
@@ -203,7 +213,14 @@ class GameEngine:
         empty_board = Board()
         return initial_deck, empty_board
 
+    def get_decisions(self):
+        if self.offline:
+            return self.engine_interface.request_decisions(self.match_history.get_updates())
+        return self.event_loop.run_until_complete(
+            self.engine_interface.request_decisions(self.match_history.get_updates()))
+
     def handle_treasure_loot(self, board_card, card_index, players):
+
         # board_card is either the new card, or the card on the route as the players are leaving
         # players are the players who decided to leave or the remaining active players
         no_players = len(players)
@@ -242,8 +259,11 @@ class GameEngine:
 
     def make_decisions(self, path_player_list):  # actually make the players make a decision
         # player_decisions = asyncio.run(ei.request_decisions(match_history.get_updates()))
-        player_decisions = self.event_loop.run_until_complete(
-            self.engine_interface.request_decisions(self.match_history.get_updates()))
+
+        # player_decisions = self.event_loop.run_until_complete(
+        #     self.engine_interface.request_decisions(self.match_history.get_updates()))
+
+        player_decisions = self.get_decisions()
 
         for player in path_player_list:
             player.continuing = player_decisions[player.player_id]["decision"]
