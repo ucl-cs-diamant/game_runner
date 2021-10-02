@@ -7,9 +7,6 @@ import os
 from typing import Union
 import traceback
 
-from diamant_game_interface import EngineInterface
-from diamant_game_interface import OfflineEngineInterface
-
 
 def generate_deck(exclusions: Union[list, None]) -> list:
     card_deck = []
@@ -196,6 +193,7 @@ class GameEngine:
         self.offline = offline_decision_maker is not None
 
         if offline_decision_maker is None:
+            from diamant_game_interface import EngineInterface
             self.event_loop = asyncio.get_event_loop()
             self.engine_interface = EngineInterface(os.environ.get("GAMESERVER_HOST"),
                                                     os.environ.get("GAMESERVER_PORT"))
@@ -204,6 +202,7 @@ class GameEngine:
             self.event_loop.run_until_complete(self.engine_interface.init_players())
             return
 
+        from diamant_game_interface import OfflineEngineInterface
         self.engine_interface = OfflineEngineInterface(offline_decision_maker)
         self.engine_interface.init_players()
 
