@@ -524,5 +524,25 @@ class RunGameTestCase(unittest.IsolatedAsyncioTestCase):
                          "'content': {'path_num': 0}}")
 
 
+class OfflineModeEngineTest(unittest.TestCase):
+    @staticmethod
+    def decision_maker(_):
+        print("yp")
+        return True
+
+    @mock.patch('diamant_game_interface.OfflineEngineInterface')
+    def test_get_decisions(self, patched: mock.MagicMock):
+        cls_inst = mock.MagicMock()
+        cls_inst.request_decisions.return_value = 'yep'
+        patched.return_value = cls_inst
+
+        ge = game_engine.GameEngine(offline_decision_maker=self.decision_maker)
+        ge.event_loop = None  # attribute error "'NoneType' object has no attribute 'run_until_complete'" if bad
+        ge.get_decisions()
+
+        self.assertTrue(ge.offline)
+        cls_inst.request_decisions.assert_called()
+
+
 if __name__ == '__main__':
     unittest.main()
