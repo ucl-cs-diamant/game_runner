@@ -32,19 +32,16 @@ def generate_deck(exclusions: Union[list, None]) -> list:
         Card("Trap", "Ram"):     3,
     }
 
-    # if exclusions is not None:
-    #     for excluded_card in exclusions:
-    #         card_deck[excluded_card] -= 1
-
-    # card_deck = list(Counter(card_deck).elements()
     card_deck = [elem for card, count in card_deck.items() for elem in [card] * count]
-    if exclusions is not None:
-        for excluded_card in exclusions:
-            for card in card_deck:
-                if card.card_type == excluded_card.card_type and card.value == excluded_card.value:
-                    card_deck.remove(card)
-                    break  # find a matching card, remove it once, and immediately break
 
+    if exclusions is None:
+        return card_deck
+
+    for excluded_card in exclusions:
+        for card in card_deck:
+            if card.card_type == excluded_card.card_type and card.value == excluded_card.value:
+                card_deck.remove(card)
+                break  # find a matching card, remove it once, and immediately break
     return card_deck
 
 
