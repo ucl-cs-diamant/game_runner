@@ -356,17 +356,9 @@ class TestExceptionHandling(unittest.TestCase):
     def tearDown(self) -> None:
         self.loop.close()
 
-    @staticmethod
-    async def value_error_raiser():
-        raise ValueError
-
     def test_missing_gameserver_address(self):
-        try:
+        with self.assertRaises(ValueError):
             game_engine.GameEngine()
-            # main_result = ge.start()
-        except ValueError:
-            return
-        self.fail("No ValueError raised.")
 
 
 class DecisionPhaseTestCase(unittest.IsolatedAsyncioTestCase):

@@ -5,7 +5,6 @@ import logging
 import numpy as np
 import os
 from typing import Union
-import traceback
 
 
 def generate_deck(exclusions: Union[list, None]) -> list:
@@ -342,13 +341,9 @@ class GameEngine:
         return [player.player_id for player in winner_list]
 
     def start(self):
-        try:
-            winners = self.run_game()
-            logging.info(str(winners) + " winner winner chicken dinner!")
-            self.engine_interface.report_outcome(winners, self.match_history)
-        except (ValueError, RuntimeError):
-            traceback.print_exc(chain=False)
-            return False
+        winners = self.run_game()
+        logging.info(str(winners) + " winner winner chicken dinner!")
+        self.engine_interface.report_outcome(winners, self.match_history)
 
 
 if __name__ == '__main__':
