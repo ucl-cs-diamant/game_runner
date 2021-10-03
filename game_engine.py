@@ -9,33 +9,35 @@ import traceback
 
 
 def generate_deck(exclusions: Union[list, None]) -> list:
-    card_deck = []
-    for i in range(5):
-        card_deck.append(Card("Relic", 5))  # add 5 relic cards
-    for i in range(3):
-        card_deck.append(Card("Trap", "Spider"))  # 3 of each trap card
-        card_deck.append(Card("Trap", "Snake"))
-        card_deck.append(Card("Trap", "Lava"))
-        card_deck.append(Card("Trap", "Boulder"))
-        card_deck.append(Card("Trap", "Ram"))
+    card_deck = {
+        Card("Treasure", 5):  2,
+        Card("Treasure", 9):  1,
+        Card("Treasure", 14): 1,
+        Card("Treasure", 3):  1,
+        Card("Treasure", 17): 1,
+        Card("Treasure", 2):  1,
+        Card("Treasure", 7):  2,
+        Card("Treasure", 1):  1,
+        Card("Treasure", 11): 2,
+        Card("Treasure", 4):  1,
+        Card("Treasure", 15): 1,
+        Card("Treasure", 13): 1,
 
-    # add 15 treasure cards
-    card_deck.append(Card("Treasure", 5))
-    card_deck.append(Card("Treasure", 5))
-    card_deck.append(Card("Treasure", 9))
-    card_deck.append(Card("Treasure", 14))
-    card_deck.append(Card("Treasure", 3))
-    card_deck.append(Card("Treasure", 17))
-    card_deck.append(Card("Treasure", 2))
-    card_deck.append(Card("Treasure", 7))
-    card_deck.append(Card("Treasure", 7))
-    card_deck.append(Card("Treasure", 1))
-    card_deck.append(Card("Treasure", 11))
-    card_deck.append(Card("Treasure", 11))
-    card_deck.append(Card("Treasure", 4))
-    card_deck.append(Card("Treasure", 15))
-    card_deck.append(Card("Treasure", 13))
+        Card("Relic", 5): 5,
 
+        Card("Trap", "Spider"):  3,
+        Card("Trap", "Snake"):   3,
+        Card("Trap", "Lava"):    3,
+        Card("Trap", "Boulder"): 3,
+        Card("Trap", "Ram"):     3,
+    }
+
+    # if exclusions is not None:
+    #     for excluded_card in exclusions:
+    #         card_deck[excluded_card] -= 1
+
+    # card_deck = list(Counter(card_deck).elements()
+    card_deck = [elem for card, count in card_deck.items() for elem in [card] * count]
     if exclusions is not None:
         for excluded_card in exclusions:
             for card in card_deck:
