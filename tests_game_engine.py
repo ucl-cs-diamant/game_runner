@@ -356,17 +356,9 @@ class TestExceptionHandling(unittest.TestCase):
     def tearDown(self) -> None:
         self.loop.close()
 
-    @staticmethod
-    async def value_error_raiser():
-        raise ValueError
-
     def test_missing_gameserver_address(self):
-        try:
+        with self.assertRaises(ValueError):
             game_engine.GameEngine()
-            # main_result = ge.start()
-        except ValueError:
-            return
-        self.fail("No ValueError raised.")
 
 
 class DecisionPhaseTestCase(unittest.IsolatedAsyncioTestCase):
@@ -530,6 +522,26 @@ class RunGameTestCase(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(str(self.game_engine.match_history[0]),
                          "{'event_type': 'new_path', "
                          "'content': {'path_num': 0}}")
+
+
+class OfflineModeEngineTest(unittest.TestCase):
+    @staticmethod
+    def decision_maker(_):
+        print("yp")
+        return True
+
+    @mock.patch('diamant_game_interface.OfflineEngineInterface')
+    def test_get_decisions(self, patched: mock.MagicMock):
+        cls_inst = mock.MagicMock()
+        cls_inst.request_decisions.return_value = 'yep'
+        patched.return_value = cls_inst
+
+        ge = game_engine.GameEngine(offline_decision_maker=self.decision_maker)
+        ge.event_loop = None  # attribute error "'NoneType' object has no attribute 'run_until_complete'" if bad
+        ge.get_decisions()
+
+        self.assertTrue(ge.offline)
+        cls_inst.request_decisions.assert_called()
 
 
 if __name__ == '__main__':
